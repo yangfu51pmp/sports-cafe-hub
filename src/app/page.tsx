@@ -21,7 +21,7 @@ export default function Home() {
             <p className="text-xs tracking-[0.28em] text-pulse">UNMANNED · TRAIN · BREW</p>
             <h1 className="mt-4 text-4xl font-semibold leading-[1.2] tracking-tight sm:text-5xl lg:text-6xl">
               空間、咖啡
-              <span className="block">與你的訓練日常</span>
+              <span className="block">與你的訓練日常『日本仙台店』</span>
             </h1>
             <p className="mt-5 max-w-lg text-pretty text-sm leading-7 text-white/65 sm:text-base">
               無人智能咖啡廳與專業運動裝備空間並置。進門自助手沖、借測裝備、坐下恢復，全程即時看板。
