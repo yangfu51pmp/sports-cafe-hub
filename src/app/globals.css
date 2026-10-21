@@ -1,26 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #141416;
+  --foreground: #f4f1ea;
+  --rock: #1c1d21;
+  --rock-soft: #26272c;
+  --pulse: #ff5a1f;
+  --wood: #c08a54;
+  --status: #34d399;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-rock: var(--rock);
+  --color-rock-soft: var(--rock-soft);
+  --color-pulse: var(--pulse);
+  --color-wood: var(--wood);
+  --color-status: var(--status);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+@utility pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(rgba(255, 90, 31, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(192, 138, 84, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
