@@ -1,8 +1,16 @@
+import { connection } from "next/server";
 import { createClient } from "redis";
 import CoffeeMenu from "@/components/cafe/CoffeeMenu";
 
 async function getSiteData() {
-  const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || "";
+  await connection();
+
+  const REDIS_URL =
+    process.env.REDIS_URL ||
+    process.env.STORAGE_URL ||
+    process.env.KV_URL ||
+    "";
+
   let announcement = "歡迎光臨 Sport Cafe！無人智能手沖與專業運動裝備空間。";
   let title = "空間、咖啡與你的訓練日常";
 
