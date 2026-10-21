@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { createClient } from "redis";
-import Navbar from "@/components/layout/Navbar";
 import CoffeeMenu from "@/components/cafe/CoffeeMenu";
 
 interface SiteConfig {
@@ -33,38 +32,69 @@ const defaultConfig: SiteConfig = {
   ],
 };
 
-async function getSiteConfig(): Promise<SiteConfig> {
+async function LuxurySite() {
   await connection();
-  const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || process.env.KV_URL || "";
-  if (!REDIS_URL) return defaultConfig;
+  const REDIS_URL =
+    process.env.REDIS_URL ||
+    process.env.STORAGE_URL ||
+    process.env.KV_URL ||
+    "";
 
-  try {
-    const client = createClient({ url: REDIS_URL });
-    await client.connect();
-    const raw = await client.get("site_config_v2");
-    await client.quit();
-    if (raw) return JSON.parse(raw);
-  } catch (e) {
-    console.error("Redis fetch error:", e);
+  let config = { ...defaultConfig };
+
+  if (REDIS_URL) {
+    try {
+      const client = createClient({ url: REDIS_URL });
+      await client.connect();
+      const raw = await client.get("site_config_v2");
+      const simpleNotice = await client.get("site_announcement");
+      const simpleTitle = await client.get("site_title");
+      await client.quit();
+
+      if (raw) {
+        config = JSON.parse(raw);
+      } else {
+        if (simpleNotice) config.announcement = simpleNotice;
+        if (simpleTitle) config.title = simpleTitle;
+      }
+    } catch (e) {
+      console.error("Redis fetch error:", e);
+    }
   }
-  return defaultConfig;
+
+  return <LuxuryView config={config} />;
 }
 
-export default async function Home() {
-  const config = await getSiteConfig();
-
+function LuxuryView({ config }: { config: SiteConfig }) {
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-stone-800 antialiased selection:bg-[#7A1B28] selection:text-white">
-      {/* 1. 頂部細緻公告橫幅 */}
+      {/* 1. 頂部英爵酒紅公告橫幅 */}
       <div className="bg-[#7A1B28] text-white px-4 py-2 text-center text-xs tracking-widest font-light flex items-center justify-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
         <span>門市公告：{config.announcement}</span>
       </div>
 
-      <Navbar />
+      {/* 2. 簡約高質感導覽列 */}
+      <header className="sticky top-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-stone-200/80">
+        <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
+          <span className="font-serif tracking-wider text-base font-semibold text-stone-900">
+            SPORT<span className="text-[#7A1B28]">CAFÉ</span>
+          </span>
+          <nav className="flex items-center gap-5 text-xs text-stone-600">
+            <a href="#menu" className="hover:text-[#7A1B28] transition">手沖咖啡</a>
+            <a href="#contact" className="hover:text-[#7A1B28] transition">裝備借測</a>
+            <a
+              href="#contact"
+              className="px-3 py-1.5 rounded-lg bg-[#7A1B28] text-white font-medium hover:bg-[#63141f] transition"
+            >
+              預約門市
+            </a>
+          </nav>
+        </div>
+      </header>
 
-      {/* 2. Hero 品牌承諾專區 */}
-      <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
+      {/* 3. Hero 品牌承諾專區 */}
+      <section className="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
         <span className="text-[11px] uppercase tracking-[0.3em] text-[#7A1B28] font-semibold border-b border-[#7A1B28]/30 pb-1">
           Sport Café Promises
         </span>
@@ -75,45 +105,43 @@ export default async function Home() {
           結合日式極致手沖工藝、日規專業運動裝備借測與運動員交流，打造專注升級的現代複合空間。
         </p>
 
-        {/* 3. 雙欄嚴選卡片模組（英爵嚴選版型） */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-14 text-left">
-          {/* 左卡片：智能手沖 */}
-          <div className="bg-white rounded-2xl p-8 border border-stone-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-stone-300 transition-all">
+        {/* 4. 雙欄嚴選展示卡片 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12 text-left">
+          <div className="bg-white rounded-2xl p-7 border border-stone-200/70 shadow-sm flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-[#7A1B28] uppercase tracking-widest bg-stone-100 px-2.5 py-1 rounded">
+              <span className="text-[10px] font-semibold text-[#7A1B28] uppercase tracking-widest bg-stone-100 px-2 py-0.5 rounded">
                 Specialty Coffee
               </span>
-              <h3 className="text-xl font-medium text-stone-800 mt-4 mb-2 tracking-wide">
+              <h3 className="text-lg font-medium text-stone-800 mt-3 mb-2">
                 {config.curation_left_title}
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed font-light">
-                由微電腦控制精密注水曲線與水溫，提供高蛋白冷萃與運動電解配方，隨時為高強度訓練補充機能。
+                微電腦精準溫控與注水曲線萃取，提供高蛋白冷萃與機能電解飲，隨時補充訓練能量。
               </p>
             </div>
-            <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
+            <div className="mt-6 pt-3 border-t border-stone-100 flex items-center justify-between">
               <span className="text-xs text-stone-400 font-light">無人吧台・一鍵出杯</span>
-              <a href="#menu" className="text-xs font-medium text-[#7A1B28] hover:underline tracking-wide">
+              <a href="#menu" className="text-xs font-semibold text-[#7A1B28] hover:underline">
                 品項菜單 →
               </a>
             </div>
           </div>
 
-          {/* 右卡片：原廠裝備借測 */}
-          <div className="bg-white rounded-2xl p-8 border border-stone-200/70 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-stone-300 transition-all">
+          <div className="bg-white rounded-2xl p-7 border border-stone-200/70 shadow-sm flex flex-col justify-between">
             <div>
-              <span className="text-[10px] font-semibold text-[#7A1B28] uppercase tracking-widest bg-stone-100 px-2.5 py-1 rounded">
+              <span className="text-[10px] font-semibold text-[#7A1B28] uppercase tracking-widest bg-stone-100 px-2 py-0.5 rounded">
                 Professional Gear
               </span>
-              <h3 className="text-xl font-medium text-stone-800 mt-4 mb-2 tracking-wide">
+              <h3 className="text-lg font-medium text-stone-800 mt-3 mb-2">
                 {config.curation_right_title}
               </h3>
               <p className="text-xs text-stone-500 leading-relaxed font-light">
-                引進日本工藝等級棒壘球手套、碳板專業競速跑鞋與運動數據穿戴裝置，現場提供手感與打擊試接體驗。
+                引進日本工藝等級棒壘球手套、碳板專業競速跑鞋與運動穿戴裝置，現場提供手感與打擊試接體驗。
               </p>
             </div>
-            <div className="mt-8 pt-4 border-t border-stone-100 flex items-center justify-between">
+            <div className="mt-6 pt-3 border-t border-stone-100 flex items-center justify-between">
               <span className="text-xs text-stone-400 font-light">原廠認證・專業顧問</span>
-              <a href="#contact" className="text-xs font-medium text-[#7A1B28] hover:underline tracking-wide">
+              <a href="#contact" className="text-xs font-semibold text-[#7A1B28] hover:underline">
                 借測諮詢 →
               </a>
             </div>
@@ -121,16 +149,16 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* 4. 精品手沖菜單模組 */}
+      {/* 5. 咖啡菜單 */}
       <section id="menu" className="max-w-4xl mx-auto px-6 py-12">
         <CoffeeMenu />
       </section>
 
-      {/* 5. 多據點聯絡我們與 LINE 諮詢（英爵全站共用頁尾） */}
+      {/* 6. 多據點聯絡我們與 LINE 諮詢 */}
       <footer id="contact" className="bg-white border-t border-stone-200/80 py-16 px-6 mt-16">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-xl font-medium text-stone-800 tracking-wide">門市據點與預約諮詢</h2>
+            <h2 className="text-xl font-medium text-stone-800">門市據點與預約諮詢</h2>
             <p className="text-xs text-stone-500 mt-1 font-light">
               提供現場手沖咖啡品嚐、運動裝備借測預約及海外移地交流對接
             </p>
@@ -140,7 +168,7 @@ export default async function Home() {
             {config.branches.map((b, idx) => (
               <div key={idx} className="p-6 rounded-2xl bg-[#FAF9F6] border border-stone-200/80">
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-semibold text-stone-900 text-sm tracking-wide">{b.name}</h3>
+                  <h3 className="font-semibold text-stone-900 text-sm">{b.name}</h3>
                   <span className="text-[10px] bg-stone-200/60 text-stone-600 px-2 py-0.5 rounded">
                     {b.tag}
                   </span>
@@ -166,18 +194,23 @@ export default async function Home() {
         </div>
       </footer>
 
-      {/* 6. 右下角常駐懸浮 LINE 預約按鈕外掛 */}
+      {/* 7. 懸浮 LINE 預約外掛 */}
       <aside className="fixed bottom-6 right-6 z-40">
         <a
           href="#contact"
-          className="flex items-center gap-2 bg-[#06C755] hover:bg-[#05b34c] text-white px-4 py-3 rounded-full shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-xs font-semibold"
+          className="flex items-center gap-2 bg-[#06C755] text-white px-4 py-2.5 rounded-full shadow-lg text-xs font-semibold"
         >
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 4.269 8.846 10.019 9.608.391.084.922.258 1.057.592.121.303.079.778.039 1.085l-.171 1.027c-.053.303-.242 1.186 1.039.647 1.281-.54 6.911-4.069 9.428-6.967 1.739-1.907 2.589-3.843 2.589-5.392z" />
-          </svg>
-          <span>預約諮詢</span>
+          <span>💬 LINE 預約諮詢</span>
         </a>
       </aside>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<LuxuryView config={defaultConfig} />}>
+      <LuxurySite />
+    </Suspense>
   );
 }
