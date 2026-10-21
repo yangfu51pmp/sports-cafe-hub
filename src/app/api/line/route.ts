@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import { createClient } from "redis";
 
 const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || "";
 const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
-const ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
+// 支援多位管理者，以逗號分隔 ID
+const ADMIN_USER_IDS = (process.env.LINE_ADMIN_USER_ID || "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
 
-// 驗證 LINE 數位簽章，確保請求真實來自 LINE
+const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || "";
+
+// 驗證 LINE 數位簽章
 function verifySignature(body: string, signature: string): boolean {
   if (!CHANNEL_SECRET) return true;
   const hash = crypto
@@ -13,6 +20,15 @@ function verifySignature(body: string, signature: string): boolean {
     .update(body)
     .digest("base64");
   return hash === signature;
+}
+
+// 建立資料庫連線
+async function getRedis() {
+  if (!REDIS_URL) return null;
+  const client = createClient({ url: REDIS_URL });
+  client.on("error", (err) => console.error("Redis Error:", err));
+  await client.connect();
+  return client;
 }
 
 export async function POST(req: Request) {
@@ -33,29 +49,46 @@ export async function POST(req: Request) {
         const userText = event.message.text.trim();
         const replyToken = event.replyToken;
 
-        // 專屬安全鎖：只回應你本人的管理者 LINE ID
-        if (userId !== ADMIN_USER_ID) {
-          await sendLineReply(replyToken, "此為門市管理專用通道，非授權人員無法操作。");
+        // 安全白名單防護：未授權人員傳訊時，自動回傳其 User ID 方便陳總授權
+        if (!ADMIN_USER_IDS.includes(userId)) {
+          await sendLineReply(
+            replyToken,
+            `【Sport Cafe 管理通知】\n此帳號尚未取得編輯權限。\n如需共同管理，請將此 ID 提供給管理員加入白名單：\n\n${userId}`
+          );
           continue;
         }
 
-        // 解析管理者指令
+        const redis = await getRedis();
+
+        // 處理更新公告
         if (userText.startsWith("更新公告")) {
           const content = userText.replace("更新公告", "").trim();
+          if (redis) {
+            await redis.set("site_announcement", content);
+            await redis.quit();
+          }
           await sendLineReply(
             replyToken,
-            `【Sport Cafe 管理通知】\n✅ 門市公告已收到指令：\n「${content}」\n系統正同步至官方網站！`
+            `【Sport Cafe 官網已同步更新】\n🎉 門市最新公告已發布：\n「${content}」\n\n點擊查看官網即時畫面：\nhttps://sports-cafe-hub.vercel.app`
           );
-        } else if (userText.startsWith("更新標題")) {
+        }
+        // 處理更新首頁標題
+        else if (userText.startsWith("更新標題")) {
           const content = userText.replace("更新標題", "").trim();
+          if (redis) {
+            await redis.set("site_title", content);
+            await redis.quit();
+          }
           await sendLineReply(
             replyToken,
-            `【Sport Cafe 管理通知】\n✅ 首頁形象標題指令：\n「${content}」\n網站即刻更新！`
+            `【Sport Cafe 官網已同步更新】\n🎉 首頁形象標題已變更為：\n「${content}」\n\n點擊查看官網即時畫面：\nhttps://sports-cafe-hub.vercel.app`
           );
-        } else {
+        }
+        // 未知指令回傳操作選單
+        else {
           await sendLineReply(
             replyToken,
-            "【Sport Cafe 遠端管理系統】\n身分驗證通過！請輸入管理指令：\n\n1. 更新公告 [內容]\n2. 更新標題 [新標題]\n\n範例：\n更新公告 仙台店跨國交流訓練進行中"
+            "【Sport Cafe 遠端管理系統】\n管理者身分認證成功！請輸入以下指令：\n\n1. 更新公告 [內容]\n2. 更新標題 [新標題]\n\n範例：\n更新公告 仙台店跨國交流訓練進行中"
           );
         }
       }
@@ -68,7 +101,6 @@ export async function POST(req: Request) {
   }
 }
 
-// 呼叫 LINE Messaging API 發送回覆
 async function sendLineReply(replyToken: string, text: string) {
   if (!CHANNEL_ACCESS_TOKEN || !replyToken) return;
 

@@ -1,51 +1,75 @@
-import AnnouncementBar from "@/components/common/AnnouncementBar";
+import { createClient } from "redis";
 import CoffeeMenu from "@/components/cafe/CoffeeMenu";
-import GearShowcase from "@/components/shop/GearShowcase";
-import SeatsStatus from "@/components/cafe/SeatsStatus";
-import BottomNav from "@/components/navigation/BottomNav";
-import Header from "@/components/navigation/Header";
 
-export default function Home() {
+// 強制每次訪問都獲取最新資料庫內容
+export const dynamic = "force-dynamic";
+
+async function getSiteData() {
+  const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || "";
+  let announcement = "歡迎光臨 Sport Cafe！無人智能手沖與專業運動裝備空間。";
+  let title = "空間、咖啡與你的訓練日常";
+
+  if (!REDIS_URL) return { announcement, title };
+
+  try {
+    const client = createClient({ url: REDIS_URL });
+    await client.connect();
+    const storedNotice = await client.get("site_announcement");
+    const storedTitle = await client.get("site_title");
+    await client.quit();
+
+    if (storedNotice) announcement = storedNotice;
+    if (storedTitle) title = storedTitle;
+  } catch (e) {
+    console.error("Failed to read Redis:", e);
+  }
+
+  return { announcement, title };
+}
+
+export default async function Home() {
+  const { announcement, title } = await getSiteData();
+
   return (
-    <div className="flex min-h-full flex-col bg-background">
-      <AnnouncementBar />
-      <Header />
+    <main className="min-h-screen bg-[#121212] text-white">
+      {/* 頂部即時公告橫幅 */}
+      <div className="bg-gradient-to-r from-orange-600 to-amber-600 px-4 py-2.5 text-center text-sm font-medium tracking-wide shadow-md flex items-center justify-center gap-2">
+        <span className="inline-block w-2 h-2 rounded-full bg-white animate-pulse" />
+        <span>門市公告：{announcement}</span>
+      </div>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pb-28 sm:px-6 md:pb-16">
-        <section
-          id="hero"
-          className="hero-grid relative mt-4 flex min-h-[calc(100svh-7.5rem)] flex-col justify-end overflow-hidden rounded-3xl border border-white/10 px-5 py-10 sm:px-10 sm:py-14"
-        >
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,90,31,0.22),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(192,138,84,0.18),transparent_42%)]" />
-          <div className="relative max-w-2xl">
-            <p className="text-xs tracking-[0.28em] text-pulse">UNMANNED · TRAIN · BREW</p>
-            <h1 className="mt-4 text-4xl font-semibold leading-[1.2] tracking-tight sm:text-5xl lg:text-6xl">
-              空間、咖啡
-              <span className="block">與你的訓練日常『日本仙台店』</span>
-            </h1>
-            <p className="mt-5 max-w-lg text-pretty text-sm leading-7 text-white/65 sm:text-base">
-              無人智能咖啡廳與專業運動裝備空間並置。進門自助手沖、借測裝備、坐下恢復，全程即時看板。
-            </p>
-          </div>
-        </section>
-
-        <div className="mt-16 space-y-16">
-          <SeatsStatus />
-          <CoffeeMenu />
-          <GearShowcase />
-
-          <section id="visit" className="scroll-mt-24 rounded-3xl border border-white/10 bg-rock p-6 sm:p-8">
-            <p className="text-xs tracking-[0.22em] text-wood">STORE</p>
-            <h2 className="mt-1 text-2xl font-semibold">門市導航</h2>
-            <p className="mt-3 text-sm leading-7 text-white/60">
-              24 小時感應進出。夜間打擊區採預約制，咖啡吧台全日無人自助運作。
-            </p>
-            <p className="mt-4 text-sm text-white/80">台北市大安區訓練一路 24 號 · B1–1F</p>
-          </section>
+      {/* Hero 形象展示區 */}
+      <section className="relative px-6 py-20 text-center max-w-4xl mx-auto">
+        <div className="inline-block px-3 py-1 mb-4 text-xs font-semibold tracking-wider text-orange-400 uppercase bg-orange-950/60 border border-orange-500/30 rounded-full">
+          Sport Cafe & Training Space
         </div>
-      </main>
+        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
+          {title}
+        </h1>
+        <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto mb-8">
+          結合運動體能評估、裝備租借體驗與智能無人手沖咖啡，打造運動員與愛好者的專屬據點。
+        </p>
 
-      <BottomNav />
-    </div>
+        <div className="flex justify-center gap-4">
+          <a
+            href="#booking"
+            className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-semibold rounded-xl shadow-lg transition-all"
+          >
+            現場借測預約
+          </a>
+          <a
+            href="#menu"
+            className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-gray-200 font-semibold rounded-xl border border-zinc-700 transition-all"
+          >
+            手沖點餐菜單
+          </a>
+        </div>
+      </section>
+
+      {/* 咖啡菜單組件 */}
+      <section id="menu" className="max-w-5xl mx-auto px-6 py-12">
+        <CoffeeMenu />
+      </section>
+    </main>
   );
 }
