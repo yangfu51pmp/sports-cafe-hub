@@ -1,9 +1,6 @@
 import { createClient } from "redis";
 import CoffeeMenu from "@/components/cafe/CoffeeMenu";
 
-// 強制每次訪問都獲取最新資料庫內容
-export const dynamic = "force-dynamic";
-
 async function getSiteData() {
   const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || "";
   let announcement = "歡迎光臨 Sport Cafe！無人智能手沖與專業運動裝備空間。";
