@@ -195,7 +195,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">裝備借測</span>
             </div>
 
-            {/* 分字 3 */}
+            {/* 分類 3 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -240,7 +240,7 @@ async function LuxuryResponsiveView() {
         </div>
       </section>
 
-      {/* 4. 門市體驗基地 */}
+      {/* 4. 門市體驗基地：手機版維持原金色/酒紅，電腦版（md:）自動切換為 LINE 官方綠色 */}
       <section id="branches" className="max-w-6xl mx-auto px-5 md:px-8 mt-12 md:mt-16">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -253,6 +253,7 @@ async function LuxuryResponsiveView() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          {/* 台北旗艦館 */}
           <div className="bg-white rounded-2xl p-6 border border-stone-200/70 shadow-sm flex flex-col justify-between hover:shadow-md transition">
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -268,17 +269,22 @@ async function LuxuryResponsiveView() {
             </div>
             <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
               <span className="text-xs text-stone-400 font-light">現場無人智能手沖・原廠裝備借測</span>
+              {/* 手機版維持金色 bg-[#BA9868]，電腦版為 LINE 綠色 md:bg-[#06C755] */}
               <a
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#BA9868] hover:bg-[#a68455] text-white px-4 py-2 rounded-xl font-medium transition"
+                className="text-xs bg-[#BA9868] hover:bg-[#a68455] md:bg-[#06C755] md:hover:bg-[#05b34c] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               >
-                LINE 台北預約
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M24 10.3c0-4.6-5.4-8.3-12-8.3S0 5.7 0 10.3c0 4.1 3.6 7.5 8.5 8.2.3.1.8.2 1 .7.1.3.1.8 0 1.2l-.4 1.5c-.1.5-.6 2-.2 2.3.4.2 1.6-.9 2.5-1.8 2.6-2.6 4.7-3.2 4.7-3.2 4.8-.5 7.9-4.3 7.9-8.9z" />
+                </svg>
+                <span>LINE 台北預約</span>
               </a>
             </div>
           </div>
 
+          {/* 仙台交流據點 */}
           <div className="bg-white rounded-2xl p-6 border border-stone-200/70 shadow-sm flex flex-col justify-between hover:shadow-md transition">
             <div>
               <div className="flex justify-between items-center mb-2">
@@ -294,20 +300,24 @@ async function LuxuryResponsiveView() {
             </div>
             <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
               <span className="text-xs text-stone-400 font-light">海外移地訓交流・裝備採購對接</span>
+              {/* 手機版維持酒紅 bg-[#7A1B28]，電腦版為 LINE 綠色 md:bg-[#06C755] */}
               <a
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] text-white px-4 py-2 rounded-xl font-medium transition"
+                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] md:bg-[#06C755] md:hover:bg-[#05b34c] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               >
-                LINE 仙台交流
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M24 10.3c0-4.6-5.4-8.3-12-8.3S0 5.7 0 10.3c0 4.1 3.6 7.5 8.5 8.2.3.1.8.2 1 .7.1.3.1.8 0 1.2l-.4 1.5c-.1.5-.6 2-.2 2.3.4.2 1.6-.9 2.5-1.8 2.6-2.6 4.7-3.2 4.7-3.2 4.8-.5 7.9-4.3 7.9-8.9z" />
+                </svg>
+                <span>LINE 仙台交流</span>
               </a>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 5. 電腦端專屬頁尾 */}
+      {/* 5. 電腦端專屬頁尾（md 以上顯示） */}
       <footer className="hidden md:block bg-stone-900 text-stone-400 py-12 px-8 mt-20 border-t border-stone-800">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
@@ -329,7 +339,7 @@ async function LuxuryResponsiveView() {
         </div>
       </footer>
 
-      {/* 6. 手機端專屬：同款四項目（LINE台北 / LINE仙台 / 來電諮詢 / ＋）全金屬香檳金導覽列 */}
+      {/* 6. 手機端專屬：100% 維持原版香檳金全金屬吸頂導覽列 ＋ 互動氣泡（md 以上自動隱藏） */}
       <aside className="md:hidden fixed bottom-0 left-0 right-0 z-50">
         {/* (A) 懸浮互動對話氣泡 */}
         <div className="max-w-md mx-auto px-4 flex justify-end mb-2 pointer-events-auto">
@@ -356,7 +366,7 @@ async function LuxuryResponsiveView() {
           </a>
         </div>
 
-        {/* (B) 截圖同款四項目 ＋ 全金屬香檳金質感導覽列 */}
+        {/* (B) 手機版全金屬香檳金導覽列 */}
         <div className="bg-gradient-to-r from-[#BA9868] via-[#D8C49F] to-[#B59261] text-white shadow-2xl border-t border-white/25 flex items-stretch h-14 max-w-md mx-auto divide-x divide-white/25">
           <a
             href="https://line.me"
