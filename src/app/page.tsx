@@ -8,7 +8,7 @@ const REDIS_URL =
   process.env.KV_URL ||
   "";
 
-// 預設配置（完美還原第一張截圖的桌機選單與 6 宮格）
+// 預設品牌配置（100% 經典高奢版型）
 const defaultConfig = {
   title: "SPORT CAFÉ",
   announcement: "民安少棒，巨人盃賽事直播中！",
@@ -18,6 +18,7 @@ const defaultConfig = {
   btnStyle: "bg-[#7A1B28] hover:bg-[#63141f] text-white",
 };
 
+// 讀取 Redis 即時動態配置（Live Config 架構）
 async function getSiteConfig() {
   if (process.env.NEXT_PHASE === "phase-production-build" || !REDIS_URL) {
     return defaultConfig;
@@ -71,7 +72,7 @@ export default async function HomePage() {
         }
       `}</style>
 
-      {/* 1. 頂部酒紅動態公告欄 */}
+      {/* 1. 頂部酒紅動態公告欄（管家可控動效） */}
       <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2.5 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
@@ -89,9 +90,8 @@ export default async function HomePage() {
         </div>
       </aside>
 
-      {/* 2. 第一張截圖同款：高質感寬螢幕導覽列（含完整文字選單與立即預約按鈕） */}
+      {/* 2. 經典高質感寬螢幕導覽列（含完整選單與立即預約按鈕） */}
       <header className="bg-white border-b border-stone-100 sticky top-0 z-50 px-8 py-4 flex items-center justify-between shadow-sm">
-        {/* 左側 Logo */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-base shadow-sm">
             S
@@ -101,7 +101,6 @@ export default async function HomePage() {
           </span>
         </div>
 
-        {/* 中央完整選單（對應第一張圖） */}
         <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-700">
           <a href="#services" className="hover:text-[#7A1B28] transition">門市服務</a>
           <a href="#beans" className="hover:text-[#7A1B28] transition">手沖豆單</a>
@@ -110,7 +109,6 @@ export default async function HomePage() {
           <a href="#stores" className="hover:text-[#7A1B28] transition">門市據點</a>
         </nav>
 
-        {/* 右側搜尋與獨立預約按鈕 */}
         <div className="flex items-center gap-6">
           <button aria-label="搜尋" className="text-stone-700 hover:text-[#7A1B28] transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -133,7 +131,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* 3. Hero 主視覺區塊（置左排版＋輪播指示器） */}
+      {/* 3. Hero 主視覺區塊（背景圖由管家大腦與 Live Config 即時控制） */}
       <main className="flex-1">
         <section
           className="relative h-[480px] sm:h-[580px] flex flex-col justify-end bg-cover bg-center transition-all duration-700"
@@ -168,70 +166,43 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* 4. 第一張截圖同款：大器圓角上疊白卡與 6 宮格完整選單 */}
+        {/* 4. 圓角上疊白卡與經典 6 宮格完整選單 */}
         <section className="relative z-20 -mt-8 bg-[#F7F4F0] rounded-t-[36px] px-6 pt-6 pb-12">
           <div className="max-w-5xl mx-auto bg-white rounded-[32px] px-6 py-10 shadow-[0_10px_40px_rgb(0,0,0,0.05)]">
             <div className="grid grid-cols-3 md:grid-cols-6 gap-6 text-center">
-              {/* 1. 精品手沖 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8h1a4 4 0 110 8h-1M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8zm5-5v2m4-2v2" />
-                  </svg>
+                  ☕
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">精品手沖</span>
               </div>
-
-              {/* 2. 裝備借測 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" />
-                  </svg>
+                  ⚾
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">裝備借測</span>
               </div>
-
-              {/* 3. 機能飲品 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
+                  ⚡
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">機能飲品</span>
               </div>
-
-              {/* 4. 仙台交流 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3a15 15 0 010 18M12 3a15 15 0 000 18" />
-                  </svg>
+                  🌐
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">仙台交流</span>
               </div>
-
-              {/* 5. 打擊體驗 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="8" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v4m0 8v4M4 12h4m8 0h4" />
-                  </svg>
+                  🎯
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">打擊體驗</span>
               </div>
-
-              {/* 6. VIP預約 */}
               <div className="flex flex-col items-center group cursor-pointer">
                 <div className="w-16 h-16 rounded-2xl bg-[#FCFAF8] border border-[#F0EAE1] shadow-sm flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition mb-3">
-                  <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 2" />
-                  </svg>
+                  📅
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-stone-700">VIP預約</span>
               </div>
@@ -243,54 +214,25 @@ export default async function HomePage() {
       {/* 5. 右下角浮動智能諮詢對話框 */}
       <div className="fixed bottom-[64px] right-4 z-40">
         <div className="relative bg-[#FAF6F0] border border-[#C5A572] rounded-2xl px-4 py-3 shadow-lg flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#EFE6D8] flex items-center justify-center text-[#A68455] shrink-0">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v6a2 2 0 01-2 2H6l-4 4V5z" />
-            </svg>
-          </div>
           <div className="text-xs leading-snug pr-2">
             <div className="text-stone-600">想知道哪款裝備適合你？</div>
             <div className="font-bold text-[#7A1B28]">點我問問看～</div>
           </div>
-          <span className="text-stone-400 text-xs cursor-pointer hover:text-stone-600">✕</span>
         </div>
       </div>
 
-      {/* 6. 手機版底部香檳金固定導覽列 */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-gradient-to-r from-[#C8A878] via-[#BA9868] to-[#B08D5B] text-white flex items-stretch shadow-[0_-2px_10px_rgba(0,0,0,0.1)] md:hidden">
-        <a
-          href="https://line.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border-r border-white/25 active:bg-black/10"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />
-          <span>LINE 台北</span>
+      {/* 6. 手機版底部導覽列 */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-gradient-to-r from-[#C8A878] via-[#BA9868] to-[#B08D5B] text-white flex items-stretch md:hidden">
+        <a href="https://line.me" className="flex-1 flex items-center justify-center text-xs font-medium border-r border-white/25">
+          LINE 台北
         </a>
-        <a
-          href="https://line.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium border-r border-white/25 active:bg-black/10"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />
-          <span>LINE 仙台</span>
+        <a href="https://line.me" className="flex-1 flex items-center justify-center text-xs font-medium border-r border-white/25">
+          LINE 仙台
         </a>
-        <a
-          href="tel:0227000000"
-          className="flex-1 flex items-center justify-center gap-1 text-xs font-medium border-r border-white/25 active:bg-black/10"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-          </svg>
-          <span>來電諮詢</span>
+        <a href="tel:0227000000" className="flex-1 flex items-center justify-center text-xs font-medium border-r border-white/25">
+          來電諮詢
         </a>
-        <button
-          aria-label="展開更多"
-          className="w-12 flex items-center justify-center text-xl font-light active:bg-black/10"
-        >
-          ＋
-        </button>
+        <button className="w-12 flex items-center justify-center text-xl font-light">＋</button>
       </nav>
     </div>
   );
