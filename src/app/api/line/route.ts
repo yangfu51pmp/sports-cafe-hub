@@ -65,14 +65,16 @@ async function captureWebsiteScreenshot(): Promise<string | null> {
   }
 }
 
-// 彈性空格與正則替換函式（防範縮排與換行不一致）
+// 彈性字串替換函式
 function applyFlexibleReplace(content: string, search: string, replace: string): { newContent: string; ok: boolean } {
-  // 1. 完全精確匹配
+  if (!search || !replace) return { newContent: content, ok: false };
+
+  // 1. 直接精準替換
   if (content.includes(search)) {
     return { newContent: content.replaceAll(search, replace), ok: true };
   }
 
-  // 2. 換行符統一匹配 (\r\n 與 \n)
+  // 2. 統一換行符替換
   const normC = content.replace(/\r\n/g, "\n");
   const normS = search.replace(/\r\n/g, "\n");
   const normR = replace.replace(/\r\n/g, "\n");
@@ -81,7 +83,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
     return { newContent: normC.replaceAll(normS, normR), ok: true };
   }
 
-  // 3. 忽略多餘空白與縮排的正則匹配
+  // 3. 忽略多餘空白正則替換
   try {
     const escaped = normS
       .trim()
@@ -98,7 +100,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
   return { newContent: content, ok: false };
 }
 
-// GitHub 程式碼局部精準替換核心
+// GitHub 程式碼修改核心
 async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
@@ -107,7 +109,6 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const filePath = "src/app/page.tsx";
   const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
 
-  // 1. 抓取 GitHub 最新 page.tsx
   const getRes = await fetch(getUrl, {
     headers: {
       Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -125,68 +126,80 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
-  // 2. 呼叫 Gemini AI（注入品牌專屬色彩與 RWD 字典）
-  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的前端架構師。
-以下是 Sport Café 首頁檔案：src/app/page.tsx。
+  // 1. 呼叫 Gemini 進行語意分析與局部定位
+  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的資深前端工程師。
+以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
-【品牌色彩庫】：
-- 香檳金（金色）：bg-[#BA9868] hover:bg-[#a68455]（電腦版：md:bg-[#BA9868] md:hover:bg-[#a68455]）
-- LINE 官方綠：bg-[#06C755] hover:bg-[#05b34c]（電腦版：md:bg-[#06C755] md:hover:bg-[#05b34c]）
-- 英爵酒紅：bg-[#7A1B28] hover:bg-[#63141f]（電腦版：md:bg-[#7A1B28] md:hover:bg-[#63141f]）
-- 曜石黑：bg-stone-900 hover:bg-black
+【色彩庫與 Class 映射】：
+- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
+- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
+- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
 
-【重要規則】：
-1. 響應式斷點：若指令提及「電腦版」，請專門修改帶有 "md:" 前綴的 class（例如把 "md:bg-[#06C755]" 改為 "md:bg-[#BA9868]"）；若提及「手機版」，則修改預設的 class。
-2. 絕對不可回傳空的 operations！必須根據用戶語意，找出最符合的 1~2 段程式碼進行替換。
-3. "search" 的字串請務必從下方【目前首頁程式碼】直接節選連續存在的 1~3 行代碼片段（不要太長，確保唯一即可）。
+【重要處理規則】：
+1. 用戶常說「門市預約的兩個按鈕」，指的是門市體驗基地中的「LINE 台北預約」與「LINE 仙台交流」這兩顆按鈕。
+2. 若指令提及「電腦版」，只修改帶有 "md:" 前綴的背景顏色樣式；不要更動手機版預設樣式。
+3. "search" 可以非常精簡！例如直接尋找需要替換的 class 字串（如 "md:bg-[#06C755] md:hover:bg-[#05b34c]"），或包含 <a> 標籤的代碼。
+4. 嚴禁回傳空的 operations！必須大膽推斷並輸出最合理的修改方案。
 
 【管理員指令】：
 "${userInstruction}"
 
 【目前首頁程式碼】：
-${currentContent}
+${currentContent}`;
 
-請回傳 JSON 格式：
-{
-  "summary": "簡短摘要本次修改（例如：已將電腦版預約按鈕調整為香檳金色）",
-  "operations": [
-    {
-      "search": "程式碼中實際存在的一小段片段",
-      "replace": "替換後的代碼片段"
-    }
-  ]
-}`;
+  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }> } = {};
 
-  const aiRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          temperature: 0.1,
-        },
-      }),
-    }
-  );
-
-  const aiData = await aiRes.json();
-  const rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
-  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }> };
   try {
+    const aiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.1,
+          },
+        }),
+      }
+    );
+
+    const aiData = await aiRes.json();
+    const rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     parsed = JSON.parse(rawJson);
-  } catch {
-    return { success: false, message: "AI 解析指令格式失敗，請重試。" };
+  } catch (err) {
+    console.error("AI parse error:", err);
+  }
+
+  // 2. 智慧備援機制（Fallback）：若 AI 猶豫未回傳 operations，後台根據關鍵字直接兜底
+  if (!parsed.operations || parsed.operations.length === 0) {
+    parsed.operations = [];
+    const text = userInstruction.toLowerCase();
+
+    // 情況 A：將電腦版按鈕改為金色
+    if (text.includes("電腦") && (text.includes("金") || text.includes("香檳"))) {
+      parsed.summary = "將電腦版門市預約按鈕調整為香檳金色";
+      parsed.operations.push({
+        search: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
+        replace: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
+      });
+    }
+    // 情況 B：將電腦版按鈕改為 LINE 綠色
+    else if (text.includes("電腦") && (text.includes("綠") || text.includes("line"))) {
+      parsed.summary = "將電腦版門市預約按鈕調整為 LINE 官方綠色";
+      parsed.operations.push({
+        search: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
+        replace: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
+      });
+    }
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未能定位到對應代碼，請嘗試換個說法。" };
+    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述（例如：把電腦版據點預約按鈕換成金色）。" };
   }
 
-  // 3. 執行彈性局部替換
+  // 3. 執行替換
   let updatedContent = currentContent;
   let appliedCount = 0;
 
@@ -203,7 +216,7 @@ ${currentContent}
     return { success: false, message: "代碼片段匹配未命中，請稍後重試。" };
   }
 
-  // 4. 將修改後的代碼 Commit 回 GitHub
+  // 4. 將代碼 Commit 回 GitHub
   const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
   const putRes = await fetch(putUrl, {
     method: "PUT",
