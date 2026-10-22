@@ -170,10 +170,11 @@ async function LuxuryResponsiveView() {
         </div>
       </section>
 
-      {/* 3. 服務分類卡片 */}
+      {/* 3. 服務分類卡片（補齊第 4 項缺失之 svg 標籤） */}
       <section id="services" className="relative z-20 max-w-6xl mx-auto -mt-6 md:-mt-12 px-4 md:px-8">
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-stone-200/60">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-y-6 md:gap-4 text-center">
+            {/* 分類 1 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -183,6 +184,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">精品手沖</span>
             </div>
 
+            {/* 分類 2 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -193,6 +195,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">裝備借測</span>
             </div>
 
+            {/* 分類 3 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -202,15 +205,18 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">機能飲品</span>
             </div>
 
+            {/* 分類 4（修復：補回缺失的開頭 svg） */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
-                <circle cx="12" cy="12" r="10" />
-                <path strokeLinecap="round" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                  <path strokeLinecap="round" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
               </div>
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">仙台交流</span>
             </div>
 
+            {/* 分類 5 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -221,6 +227,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">打擊體驗</span>
             </div>
 
+            {/* 分類 6 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -322,7 +329,7 @@ async function LuxuryResponsiveView() {
         </div>
       </footer>
 
-      {/* 6. 手機端專屬：同款四欄內容（LINE台北 / LINE仙台 / 來電諮詢 / ＋）全金屬光澤導覽列 */}
+      {/* 6. 手機端專屬：同款四項目（LINE台北 / LINE仙台 / 來電諮詢 / ＋）全金屬光澤導覽列 */}
       <aside className="md:hidden fixed bottom-0 left-0 right-0 z-50">
         {/* (A) 懸浮互動對話氣泡 */}
         <div className="max-w-md mx-auto px-4 flex justify-end mb-2 pointer-events-auto">
@@ -332,7 +339,6 @@ async function LuxuryResponsiveView() {
             rel="noreferrer"
             className="relative bg-white/95 backdrop-blur-sm border border-[#BA9868] rounded-2xl px-3 py-2 shadow-xl flex items-center gap-2 max-w-[245px] hover:scale-[1.02] active:scale-95 transition"
           >
-            {/* 氣泡向下小指針 */}
             <div className="absolute -bottom-1.5 right-14 w-3 h-3 bg-white border-b border-r border-[#BA9868] rotate-45" />
 
             <div className="w-7 h-7 rounded-full bg-[#BA9868]/15 text-[#BA9868] flex items-center justify-center shrink-0">
@@ -352,7 +358,6 @@ async function LuxuryResponsiveView() {
 
         {/* (B) 截圖同款四項目 ＋ 全金屬香檳金質感導覽列 */}
         <div className="bg-gradient-to-r from-[#BA9868] via-[#D8C49F] to-[#B59261] text-white shadow-2xl border-t border-white/25 flex items-stretch h-14 max-w-md mx-auto divide-x divide-white/25">
-          {/* 項目 1：● LINE 台北 */}
           <a
             href="https://line.me"
             target="_blank"
@@ -363,7 +368,6 @@ async function LuxuryResponsiveView() {
             <span className="truncate">LINE 台北</span>
           </a>
 
-          {/* 項目 2：● LINE 仙台 */}
           <a
             href="https://line.me"
             target="_blank"
@@ -374,7 +378,6 @@ async function LuxuryResponsiveView() {
             <span className="truncate">LINE 仙台</span>
           </a>
 
-          {/* 項目 3：📞 來電諮詢 */}
           <a
             href="tel:0225000000"
             className="flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wider active:opacity-75 transition drop-shadow-sm"
@@ -385,7 +388,6 @@ async function LuxuryResponsiveView() {
             <span className="truncate">來電諮詢</span>
           </a>
 
-          {/* 項目 4：＋ 展開更多選項 */}
           <details className="relative shrink-0">
             <summary
               aria-label="更多聯絡方式"
@@ -431,14 +433,12 @@ async function LuxuryResponsiveView() {
 
 export default function Home() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#F8F7F4] flex items-center justify-center text-xs text-stone-400 font-light">
+    <Suspense <div className="min-h-screen bg-[#F8F7F4] flex items-center justify-center text-xs text-stone-400 font-light" fallback="{">
           Sport Café 載入中...
         </div>
       }
     >
-      <LuxuryResponsiveView />
+      <LuxuryResponsiveView/>
     </Suspense>
   );
 }
