@@ -1,6 +1,6 @@
 import { createClient } from "redis";
 
-// Next.js 15 官方解法：允許動態阻塞式渲染，免除預渲染衝突
+// 宣告為動態路由，避開 Next.js 15 靜態預渲染衝突
 export const instant = false;
 
 const REDIS_URL =
@@ -21,10 +21,7 @@ const defaultConfig = {
 
 // 讀取 Redis 即時動態配置
 async function getSiteConfig() {
-  // 雙保險：在 npm run build 打包階段直接回傳預設值，避開隨機數與網路連線報錯
-  if (process.env.NEXT_PHASE === "phase-production-build" || !REDIS_URL) {
-    return defaultConfig;
-  }
+  if (!REDIS_URL) return defaultConfig;
 
   try {
     const client = createClient({ url: REDIS_URL });
@@ -48,7 +45,6 @@ async function getSiteConfig() {
       btnStyle: btnStyle || defaultConfig.btnStyle,
     };
   } catch (e) {
-    console.error("Redis 讀取失敗，使用預設配置:", e);
     return defaultConfig;
   }
 }
@@ -93,7 +89,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* Hero 視覺核心（背景圖由 Live Config 即時控制） */}
+      {/* Hero 視覺核心 */}
       <main className="flex-1">
         <section
           className="relative min-h-[520px] md:min-h-[620px] flex items-center justify-center bg-cover bg-center transition-all duration-700"
@@ -156,7 +152,6 @@ export default async function HomePage() {
         </section>
       </main>
 
-      {/* 底部資訊 */}
       <footer className="border-t border-stone-800 bg-stone-950 py-8 px-6 text-center text-xs text-stone-500">
         <p>© 2026 SPORT CAFÉ GROUP. All rights reserved.</p>
       </footer>
