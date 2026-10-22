@@ -1,13 +1,6 @@
-import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "redis";
-
-const CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || "";
-const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
-const ADMIN_USER_IDS = (process.env.LINE_ADMIN_USER_ID || "")
-  .split(",")
-  .map((id) => id.trim())
-  .filter(Boolean);
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const REDIS_URL =
   process.env.REDIS_URL ||
@@ -15,183 +8,134 @@ const REDIS_URL =
   process.env.KV_URL ||
   "";
 
+const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
+const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
-function verifySignature(body: string, signature: string): boolean {
-  if (!CHANNEL_SECRET) return true;
-  const hash = crypto
-    .createHmac("sha256", CHANNEL_SECRET)
-    .update(body)
-    .digest("base64");
-  return hash === signature;
-}
-
-async function getRedis() {
-  if (!REDIS_URL) return null;
-  const client = createClient({ url: REDIS_URL });
-  client.on("error", (err) => console.error("Redis Error:", err));
-  await client.connect();
-  return client;
-}
-
-// 透過 Gemini AI 理解自然口語並分析修改意圖
-async function parseCommandWithAI(userText: string, currentNotice: string, currentTitle: string) {
-  if (!GEMINI_API_KEY) return null;
-
-  const prompt = `
-你是一個專業的網站內容管理助手（Sport Cafe 運動咖啡空間）。
-網站具備兩個動態文字欄位：
-1. "announcement"（頂部橘色即時公告橫幅，目前內容為：「${currentNotice}」）
-2. "title"（首頁形象主標題，目前內容為：「${currentTitle}」）
-
-管理者傳送了一則訊息：
-"""
-${userText}
-"""
-
-請分析管理者的自然語言意圖，判斷是否要修改網站內容，並輸出合法 JSON 格式（不要包含任何 markdown 語法或多餘文字）：
-{
-  "is_admin_action": true 或 false（若是打招呼、提問、閒聊則設為 false）,
-  "update_announcement": true 或 false,
-  "new_announcement": "更新後的公告完整字串，若不變動請給 null",
-  "update_title": true 或 false,
-  "new_title": "更新後的主標題完整字串，若不變動請給 null",
-  "summary_message": "給管理者的回覆確認說明（例如：首頁主標題已調整為「...」）"
-}
-`;
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-      }
-    );
-
-    const json = await res.json();
-    const resultText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!resultText) return null;
-    return JSON.parse(resultText);
-  } catch (e) {
-    console.error("Gemini AI parse error:", e);
-    return null;
-  }
-}
-
-export async function POST(req: Request) {
-  try {
-    const rawBody = await req.text();
-    const signature = req.headers.get("x-line-signature") || "";
-
-    if (!verifySignature(rawBody, signature)) {
-      return NextResponse.json({ message: "Invalid signature" }, { status: 401 });
-    }
-
-    const data = JSON.parse(rawBody);
-    const events = data.events || [];
-
-    for (const event of events) {
-      if (event.type === "message" && event.message.type === "text") {
-        const userId = event.source.userId;
-        const userText = event.message.text.trim();
-        const replyToken = event.replyToken;
-
-        // 白名單身分防護
-        if (!ADMIN_USER_IDS.includes(userId)) {
-          await sendLineReply(
-            replyToken,
-            `【Sport Cafe 管理通知】\n此帳號尚未取得編輯權限。\n如需共同管理，請將此 ID 提供給管理員加入白名單：\n\n${userId}`
-          );
-          continue;
-        }
-
-        const redis = await getRedis();
-        let currentNotice = "歡迎光臨 Sport Cafe！";
-        let currentTitle = "空間、咖啡與你的訓練日常";
-
-        if (redis) {
-          const n = await redis.get("site_announcement");
-          const t = await redis.get("site_title");
-          if (n) currentNotice = n;
-          if (t) currentTitle = t;
-        }
-
-        // 1. 優先使用 AI 解析自然語言指令
-        const aiParsed = await parseCommandWithAI(userText, currentNotice, currentTitle);
-
-        if (aiParsed && aiParsed.is_admin_action) {
-          if (redis) {
-            if (aiParsed.update_announcement && aiParsed.new_announcement) {
-              await redis.set("site_announcement", aiParsed.new_announcement);
-            }
-            if (aiParsed.update_title && aiParsed.new_title) {
-              await redis.set("site_title", aiParsed.new_title);
-            }
-            await redis.quit();
-          }
-
-          await sendLineReply(
-            replyToken,
-            `【Sport Cafe 官網已同步更新】\n🤖 AI 已為您完成調整：\n${aiParsed.summary_message}\n\n點擊查看官網即時畫面：\nhttps://sports-cafe-hub.vercel.app`
-          );
-          continue;
-        }
-
-        // 2. 備用關鍵字機制
-        if (userText.startsWith("更新公告")) {
-          const content = userText.replace("更新公告", "").trim();
-          if (redis) {
-            await redis.set("site_announcement", content);
-            await redis.quit();
-          }
-          await sendLineReply(
-            replyToken,
-            `【Sport Cafe 官網已同步更新】\n🎉 門市公告已更新為：\n「${content}」\n\n點擊查看官網即時畫面：\nhttps://sports-cafe-hub.vercel.app`
-          );
-        } else if (userText.startsWith("更新標題")) {
-          const content = userText.replace("更新標題", "").trim();
-          if (redis) {
-            await redis.set("site_title", content);
-            await redis.quit();
-          }
-          await sendLineReply(
-            replyToken,
-            `【Sport Cafe 官網已同步更新】\n🎉 首頁標題已變更為：\n「${content}」\n\n點擊查看官網即時畫面：\nhttps://sports-cafe-hub.vercel.app`
-          );
-        } else {
-          if (redis) await redis.quit();
-          await sendLineReply(
-            replyToken,
-            "【Sport Cafe 智慧助手】\n已確認您的管理身分！您可以直接用口語交代我：\n\n•「把標題加上（仙台店）」\n•「公告改為下週二台日棒球交流休館」\n•「把公告恢復成歡迎光臨」"
-          );
-        }
-      }
-    }
-
-    return NextResponse.json({ status: "success" });
-  } catch (error) {
-    console.error("LINE Webhook Error:", error);
-    return NextResponse.json({ message: "Internal Error" }, { status: 500 });
-  }
-}
-
-async function sendLineReply(replyToken: string, text: string) {
-  if (!CHANNEL_ACCESS_TOKEN || !replyToken) return;
-
+async function replyLine(replyToken: string, text: string) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN) return;
   await fetch("https://api.line.me/v2/bot/message/reply", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${CHANNEL_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
     },
     body: JSON.stringify({
       replyToken,
       messages: [{ type: "text", text }],
     }),
   });
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const events = body.events || [];
+
+    for (const event of events) {
+      if (event.type !== "message" || event.message.type !== "text") continue;
+
+      const userId = event.source.userId;
+      const userText = event.message.text.trim();
+      const replyToken = event.replyToken;
+
+      // 1. 白名單身分比對（支援逗號隔開的多組 ID）
+      const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
+      if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
+        await replyLine(replyToken, "【Sport Cafe】抱歉，您尚未獲得管理員授權。");
+        continue;
+      }
+
+      // 2. 備援規則（萬一無 API Key 或 AI 逾時，直接正規處理「把公告改為」）
+      let cleanText = userText.replace(/^[「『"]|[」』"]$/g, "");
+      if (cleanText.includes("公告") && (cleanText.includes("改為") || cleanText.includes("換成") || cleanText.includes("恢復成"))) {
+        let newNotice = cleanText
+          .replace(/.*?(改為|換成|恢復成)[：:\s]*/, "")
+          .trim();
+        if (cleanText.includes("恢復成歡迎光臨") || newNotice === "歡迎光臨") {
+          newNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備空間。";
+        }
+
+        if (newNotice && REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.set("site_announcement", newNotice);
+          await client.quit();
+
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${newNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`
+          );
+          continue;
+        }
+      }
+
+      // 3. 使用 Gemini AI 進行多意圖語意解析
+      if (!GEMINI_API_KEY) {
+        await replyLine(
+          replyToken,
+          "【系統提醒】後台尚未設定 GEMINI_API_KEY，但您可以使用基本指令：\n「把公告改為：您的內容」"
+        );
+        continue;
+      }
+
+      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+      const prompt = `你是一個網站內容管理助理。請根據用戶的管理指令，輸出 JSON 格式。
+目前支援欄位：
+- announcement (公告內容，字串)
+- title (首頁標題，字串)
+
+用戶訊息: "${userText}"
+
+請僅回傳 JSON 格式，不要包含額外的說明文字或 Markdown 標籤，例如：
+{"announcement": "今日正常營業", "title": null}`;
+
+      const aiRes = await model.generateContent(prompt);
+      const rawText = aiRes.response.text();
+      // 清除可能包覆的 markdown 標籤
+      const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+      let parsed: { announcement?: string | null; title?: string | null } = {};
+      try {
+        parsed = JSON.parse(cleanJson);
+      } catch (parseErr) {
+        console.error("JSON parse failed:", rawText);
+      }
+
+      if (!parsed.announcement && !parsed.title) {
+        await replyLine(
+          replyToken,
+          "【Sport Cafe 助手】未能識別您的修改內容，您可以直接說：\n• 「把公告改為：今日下午店休」\n• 「把標題加上（台北旗艦店）」"
+        );
+        continue;
+      }
+
+      // 寫入 Redis
+      if (REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+
+        let replyMsg = "【Sport Cafe 助手】更新成功：\n";
+        if (parsed.announcement) {
+          await client.set("site_announcement", parsed.announcement);
+          replyMsg += `• 公告已改為：「${parsed.announcement}」\n`;
+        }
+        if (parsed.title) {
+          await client.set("site_title", parsed.title);
+          replyMsg += `• 標題已改為：「${parsed.title}」\n`;
+        }
+        await client.quit();
+
+        replyMsg += "\n官網已即時更新：\nhttps://sports-cafe-hub.vercel.app";
+        await replyLine(replyToken, replyMsg);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("LINE webhook error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
