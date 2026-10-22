@@ -17,11 +17,11 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
-// 精品高解析圖庫（精準咖啡特寫系列）
+// 精品高解析圖庫
 const CURATED_IMAGES = {
-  pourover_craft: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 職人手沖滴漏（精品工藝感）
+  pourover_craft: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 職人手沖滴漏
   original_americano: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop", // 原版美式經典俯瞰
-  iced_americano: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=1600&auto=format&fit=crop", // 透亮冰美式咖啡
+  iced_americano: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=1600&auto=format&fit=crop", // 透亮冰美式
   latte_art: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop", // 精品拉花拿鐵
   cafe_space: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop", // 空間裝潢照
   baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop", // 棒球打擊
@@ -85,31 +85,11 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   }).catch(() => {});
 }
 
-// 主動推播截圖
+// 主動推播截圖（分兩段發送，確保即使圖片稍慢也一定會收到截圖）
 async function pushLine(to: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
-  if (imageUrl) {
-    try {
-      const res = await fetch("https://api.line.me/v2/bot/message/push", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-        },
-        body: JSON.stringify({
-          to,
-          messages: [
-            { type: "text", text },
-            { type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl },
-          ],
-        }),
-      });
-      if (res.ok) return;
-    } catch (e) {}
-  }
-
-  // 降級純文字
+  // 1. 先推播通知文字
   await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
@@ -121,9 +101,24 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
       messages: [{ type: "text", text }],
     }),
   }).catch(() => {});
+
+  // 2. 若有截圖，緊接著單獨推播圖片訊息
+  if (imageUrl) {
+    await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to,
+        messages: [{ type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl }],
+      }),
+    }).catch(() => {});
+  }
 }
 
-// 雲端截圖
+// 雲端截圖（放寬至 9.5 秒充足渲染時間）
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -134,7 +129,7 @@ async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile")
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent( targetUrl )}&screenshot=true&viewport.isMobile=${isDesktop ? "false" : "true"}&viewport.width=${width}&viewport.height=${height}`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6500);
+    const timer = setTimeout(() => controller.abort(), 9500);
 
     const res = await fetch(screenshotApi, { signal: controller.signal });
     clearTimeout(timer);
@@ -192,7 +187,7 @@ async function modifyFrontendCode(userInstruction: string, chatHistory: string):
   const fileSha = fileData.sha;
 
   const prompt = `你是一位資深 Next.js 前端架構師與 Sport Café 智能品牌管家。
-請根據管理員口語指令，主動解讀其審美意圖並修改首頁檔案：src/app/page.tsx。
+請根據管理員口語指令，解讀審美意圖並修改首頁檔案：src/app/page.tsx。
 
 【對話脈絡】：
 ${chatHistory || "無"}
@@ -206,7 +201,7 @@ ${chatHistory || "無"}
 【重要處理原則】：
 1. 用戶若使用疑問句（例如「可以換...嗎？」、「能不能...」），請直接視為【肯定執行指令】，立刻進行更換！
 2. 若用戶提及「另一種方式呈現精品咖啡」、「精品咖啡的感覺」，請選用【職人手沖滴漏】或【質感透亮冰美式】，替換首頁 Hero 的 backgroundImage！
-3. 嚴禁回傳空的 operations！必須大膽給出最佳方案。
+3. 必須給出確切的替換代碼。
 
 【管理員指令】：
 "${userInstruction}"
@@ -237,13 +232,13 @@ ${currentContent}`;
     parsed = JSON.parse(rawJson);
   } catch (err) {}
 
-  // 強大備援兜底（100% 保證換圖成功）
+  // 強大備援兜底
   if (!parsed.operations || parsed.operations.length === 0) {
     parsed.operations = [];
     const text = userInstruction.toLowerCase();
 
     if (text.includes("咖啡") || text.includes("圖") || text.includes("照") || text.includes("呈現")) {
-      let targetImg = CURATED_IMAGES.pourover_craft; // 預設精品手沖工藝感
+      let targetImg = CURATED_IMAGES.pourover_craft;
 
       if (text.includes("最初") || text.includes("原本") || text.includes("美式")) {
         targetImg = CURATED_IMAGES.original_americano;
@@ -372,9 +367,12 @@ export async function POST(req: NextRequest) {
           );
 
           after(async () => {
-            await new Promise((resolve) => setTimeout(resolve, 18000));
+            // 等待 Vercel 部署完畢
+            await new Promise((resolve) => setTimeout(resolve, 20000));
+            // 抓取截圖（已調高至 9.5 秒充足時間）
             const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
 
+            // 雙段推播：文字與截圖分開送，絕不漏接
             await pushLine(
               targetChatId,
               `【Sport Cafe AI 工程師】🎉\n${isDesktopIntent ? "電腦版" : "手機版"}最新改版已成功部署上線！\n實機截圖回報如下：\nhttps://sports-cafe-hub.vercel.app`,
