@@ -11,7 +11,11 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
-// 支援同時傳送文字與截圖
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
+const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
+
+// 支援傳送文字與截圖
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
 
@@ -61,6 +65,98 @@ async function captureWebsiteScreenshot(): Promise<string | null> {
   }
 }
 
+// GitHub 程式碼自動修改與 Commit 核心函式
+async function modifyFrontendCode(userInstruction: string): Promise<string> {
+  if (!GITHUB_TOKEN) {
+    return "尚未在 Vercel 設定 GITHUB_TOKEN，無法自動修改代碼。";
+  }
+
+  const filePath = "src/app/page.tsx";
+  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+
+  // 1. 抓取 GitHub 最新 page.tsx 檔案
+  const getRes = await fetch(getUrl, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "SportCafe-Bot",
+    },
+    cache: "no-store",
+  });
+
+  if (!getRes.ok) {
+    return `讀取 GitHub 檔案失敗 (狀態碼: ${getRes.status})，請確認權限與倉庫設定。`;
+  }
+
+  const fileData = await getRes.json();
+  const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
+  const fileSha = fileData.sha;
+
+  // 2. 呼叫 Gemini AI 修改 React/Tailwind 程式碼
+  const prompt = `你是一位資深的 Next.js 與 Tailwind CSS 前端工程師。
+這是一個名為 Sport Café 的精品咖啡與運動複合品牌首頁檔案：src/app/page.tsx。
+
+【管理員的修改要求】：
+"${userInstruction}"
+
+【目前首頁的完整程式碼】：
+${currentContent}
+
+【修改任務】：
+1. 嚴格根據管理員要求修改程式碼（例如按鈕色彩、樣式、版面、文字調整等）。
+2. 保留原有完整的 Suspense、TypeScript interface、Redis 設定與響應式邏輯。
+3. 務必保持 JSX 語法完全正確，不要缺少任何結束標籤。
+4. 僅回傳修改後的「完整程式碼」，不要包含任何 markdown 解釋文字、不要包含 \`\`\`tsx 或 \`\`\` 區塊標籤。直接以 import 開頭輸出純文字代碼。`;
+
+  const aiRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    }
+  );
+
+  const aiData = await aiRes.json();
+  let updatedCode = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  // 去除 markdown 標籤
+  updatedCode = updatedCode
+    .replace(/^```[a-zA-Z]*\n/m, "")
+    .replace(/\n```$/m, "")
+    .trim();
+
+  if (!updatedCode.startsWith("import")) {
+    return "AI 生成代碼格式有誤，已取消自動 Commit 以保護網站安全。";
+  }
+
+  // 3. 將修改後的代碼 Commit 回 GitHub main 分支
+  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+  const putRes = await fetch(putUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+      "User-Agent": "SportCafe-Bot",
+    },
+    body: JSON.stringify({
+      message: `[AI Bot Auto-Update] ${userInstruction.slice(0, 50)}`,
+      content: Buffer.from(updatedCode, "utf-8").toString("base64"),
+      sha: fileSha,
+    }),
+  });
+
+  if (!putRes.ok) {
+    const errData = await putRes.json();
+    return `提交 GitHub 失敗: ${errData.message || putRes.statusText}`;
+  }
+
+  return "SUCCESS";
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -74,7 +170,7 @@ export async function POST(req: NextRequest) {
       const replyToken = event.replyToken;
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
 
-      // 1. 群組過濾：在群組內只有明確 @機器人 或叫助手時才動作，其餘完全靜音
+      // 1. 群組過濾：在群組內只有明確 @機器人 或叫助手時才動作
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
@@ -85,13 +181,13 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 清理文字標籤
+      // 2. 清理輸入文字
       let cleanText = rawText
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
 
-      // 3. 白名單管理員驗證
+      // 3. 白名單身分驗證
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
         if (!isGroupChat) {
@@ -100,16 +196,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 4. 新增：主動索取截圖指令（支援「截圖」、「截取首頁」、「看畫面」等）
-      const screenshotKeywords = ["截圖", "截取", "截", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
-      const isRequestingScreenshot = screenshotKeywords.some((kw) => cleanText.includes(kw));
-
-      if (
-        isRequestingScreenshot &&
-        !cleanText.includes("改為") &&
-        !cleanText.includes("換成") &&
-        !cleanText.includes("http")
-      ) {
+      // 4. 截圖指令
+      const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
+      if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換")) {
         const screenshot = await captureWebsiteScreenshot();
         await replyLine(
           replyToken,
@@ -119,33 +208,19 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 稱讚與日常問候互動
+      // 5. 稱讚與問候互動
       const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
-      const isPraise = praiseKeywords.some((kw) => cleanText.includes(kw));
-
-      if (
-        isPraise &&
-        !cleanText.includes("改為") &&
-        !cleanText.includes("公告") &&
-        !cleanText.includes("標題") &&
-        !cleanText.includes("http")
-      ) {
+      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("http")) {
         await replyLine(
           replyToken,
-          "謝謝誇獎！我隨時在線待命，有任何門市公告、賽事戰況或標題要更新，隨時 @ 我交代即可 😊⚾☕"
+          "謝謝誇獎！我隨時在線待命，有任何門市公告、排版樣式或按鈕顏色要調整，隨時 @ 我交代即可 😊⚾☕"
         );
         continue;
       }
 
-      // 6. 第一重保險：網址直接綁定公告
+      // 6. 第一重保險：網址綁定公告（Redis 高速通道）
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
-      if (
-        urlMatch &&
-        (cleanText.includes("連結") ||
-          cleanText.includes("公告") ||
-          cleanText.includes("網址") ||
-          cleanText.includes("直播"))
-      ) {
+      if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
         const targetUrl = urlMatch[0];
         if (REDIS_URL) {
           const client = createClient({ url: REDIS_URL });
@@ -163,15 +238,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 第一重保險：主標題直接修改
-      if (
-        cleanText.includes("標題") &&
-        (cleanText.includes("改為") ||
-          cleanText.includes("換成") ||
-          cleanText.includes("設定為") ||
-          cleanText.includes("加上"))
-      ) {
-        let newTitle = cleanText.replace(/.*?(改為|換成|設定為|加上)[：:\s]*/, "").trim();
+      // 7. 第一重保險：純文字標題與公告修改（Redis 高速通道）
+      if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
+        let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
         if (newTitle && REDIS_URL) {
           const client = createClient({ url: REDIS_URL });
           await client.connect();
@@ -188,113 +257,49 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. 第一重保險：公告直接修改
-      let directNotice: string | null = null;
-      if (
-        cleanText.includes("公告") &&
-        (cleanText.includes("改為") ||
-          cleanText.includes("換成") ||
-          cleanText.includes("恢復成"))
-      ) {
-        directNotice = cleanText.replace(/.*?(改為|換成|恢復成)[：:\s]*/, "").trim();
-        if (cleanText.includes("恢復成歡迎光臨") || directNotice === "歡迎光臨") {
-          directNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備借測空間。";
+      if (cleanText.startsWith("公告改為") || cleanText.startsWith("公告換成")) {
+        let directNotice = cleanText.replace(/^公告(改為|換成)[：:\s]*/, "").trim();
+        if (directNotice && REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.set("site_announcement", directNotice);
+          await client.quit();
+
+          const screenshot = await captureWebsiteScreenshot();
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+            screenshot
+          );
+          continue;
         }
-      } else if (
-        cleanText.includes("營業時間") ||
-        cleanText.includes("店休") ||
-        cleanText.includes("公休")
-      ) {
-        directNotice = cleanText;
       }
 
-      if (directNotice && REDIS_URL) {
-        const client = createClient({ url: REDIS_URL });
-        await client.connect();
-        await client.set("site_announcement", directNotice);
-        await client.quit();
+      // 8. 智能代碼修改核心（樣式、顏色、排版、按鈕調整）
+      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "換成", "調整", "增加", "刪除", "電腦版", "手機版"];
+      const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
 
-        const screenshot = await captureWebsiteScreenshot();
+      if (isCodeModification && GITHUB_TOKEN) {
+        const result = await modifyFrontendCode(cleanText);
+
+        if (result === "SUCCESS") {
+          await replyLine(
+            replyToken,
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼並推送到 GitHub！\n\n⚡ Vercel 正在自動建置上線（約 20 秒）。建置完成後，您可以 @ 我說「截圖」，我會立刻拍下最新實機畫面給您驗收！`
+          );
+          continue;
+        } else {
+          await replyLine(replyToken, `【Sport Cafe 管理助手】代碼調整未完成：${result}`);
+          continue;
+        }
+      }
+
+      // 9. 一般私聊引導
+      if (!isGroupChat) {
         await replyLine(
           replyToken,
-          `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-          screenshot
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版的按鈕顏色調整為...\n• 標題改為：最新戰況\n• 截圖（查看目前畫面）"
         );
-        continue;
-      }
-
-      // 9. 第二重保險：Gemini 自然語意辨識
-      let parsedNotice: string | null = null;
-      let parsedTitle: string | null = null;
-      let parsedUrl: string | null = null;
-
-      if (GEMINI_API_KEY && cleanText.length > 2) {
-        try {
-          const prompt = `你是一個網站後台管理助理。請判斷管理員輸入是否為修改網站內容的指令。
-若是指令，請提取欄位並回傳 JSON；若純粹是用戶之間的日常聊天、非修改指令，請回傳 null。
-
-欄位說明：
-- announcement: 公告或活動文字 (若未提及則為 null)
-- announcement_url: 網址連結 (若無則為 null)
-- title: 網站大標題 (若未提及則為 null)
-
-管理員輸入: "${cleanText}"
-
-僅回傳純 JSON 格式（不要包含 markdown）：
-{"announcement": null, "announcement_url": null, "title": null}
-若非指令請只回傳: null`;
-
-          const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-              }),
-            }
-          );
-
-          const aiData = await res.json();
-          const rawAiText = (aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
-          const cleanJson = rawAiText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-          if (cleanJson && cleanJson !== "null") {
-            const parsed = JSON.parse(cleanJson);
-            parsedNotice = parsed.announcement || null;
-            parsedTitle = parsed.title || null;
-            parsedUrl = parsed.announcement_url || null;
-          }
-        } catch (aiErr) {
-          console.error("Gemini parse failed:", aiErr);
-        }
-      }
-
-      // 10. 寫入 Redis 並拍照回報
-      if ((parsedNotice || parsedTitle || parsedUrl) && REDIS_URL) {
-        const client = createClient({ url: REDIS_URL });
-        await client.connect();
-
-        let replyMsg = "【Sport Cafe 管理助手】更新成功：\n";
-        if (parsedNotice) {
-          await client.set("site_announcement", parsedNotice);
-          replyMsg += `• 公告已改為：「${parsedNotice}」\n`;
-        }
-        if (parsedUrl) {
-          await client.set("site_announcement_url", parsedUrl);
-          replyMsg += `• 公告連結已設定為：${parsedUrl}\n`;
-        }
-        if (parsedTitle) {
-          await client.set("site_title", parsedTitle);
-          replyMsg += `• 標題已改為：「${parsedTitle}」\n`;
-        }
-        await client.quit();
-
-        replyMsg += "\n官網已同步更新：\nhttps://sports-cafe-hub.vercel.app";
-
-        const screenshot = await captureWebsiteScreenshot();
-        await replyLine(replyToken, replyMsg, screenshot);
-        continue;
       }
     }
 
