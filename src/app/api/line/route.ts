@@ -65,6 +65,39 @@ async function captureWebsiteScreenshot(): Promise<string | null> {
   }
 }
 
+// 彈性空格與正則替換函式（防範縮排與換行不一致）
+function applyFlexibleReplace(content: string, search: string, replace: string): { newContent: string; ok: boolean } {
+  // 1. 完全精確匹配
+  if (content.includes(search)) {
+    return { newContent: content.replaceAll(search, replace), ok: true };
+  }
+
+  // 2. 換行符統一匹配 (\r\n 與 \n)
+  const normC = content.replace(/\r\n/g, "\n");
+  const normS = search.replace(/\r\n/g, "\n");
+  const normR = replace.replace(/\r\n/g, "\n");
+
+  if (normC.includes(normS)) {
+    return { newContent: normC.replaceAll(normS, normR), ok: true };
+  }
+
+  // 3. 忽略多餘空白與縮排的正則匹配
+  try {
+    const escaped = normS
+      .trim()
+      .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\s+/g, "\\s+");
+    const reg = new RegExp(escaped, "g");
+    if (reg.test(normC)) {
+      return { newContent: normC.replace(reg, normR), ok: true };
+    }
+  } catch (e) {
+    console.error("Regex replacement error:", e);
+  }
+
+  return { newContent: content, ok: false };
+}
+
 // GitHub 程式碼局部精準替換核心
 async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
   if (!GITHUB_TOKEN) {
@@ -92,29 +125,37 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
-  // 2. 呼叫 Gemini AI 產生局部 Search & Replace 變更
-  const prompt = `你是一位資深的 Next.js 與 Tailwind CSS 前端工程師。
+  // 2. 呼叫 Gemini AI（注入品牌專屬色彩與 RWD 字典）
+  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的前端架構師。
 以下是 Sport Café 首頁檔案：src/app/page.tsx。
 
-【管理員口語指令】：
+【品牌色彩庫】：
+- 香檳金（金色）：bg-[#BA9868] hover:bg-[#a68455]（電腦版：md:bg-[#BA9868] md:hover:bg-[#a68455]）
+- LINE 官方綠：bg-[#06C755] hover:bg-[#05b34c]（電腦版：md:bg-[#06C755] md:hover:bg-[#05b34c]）
+- 英爵酒紅：bg-[#7A1B28] hover:bg-[#63141f]（電腦版：md:bg-[#7A1B28] md:hover:bg-[#63141f]）
+- 曜石黑：bg-stone-900 hover:bg-black
+
+【重要規則】：
+1. 響應式斷點：若指令提及「電腦版」，請專門修改帶有 "md:" 前綴的 class（例如把 "md:bg-[#06C755]" 改為 "md:bg-[#BA9868]"）；若提及「手機版」，則修改預設的 class。
+2. 絕對不可回傳空的 operations！必須根據用戶語意，找出最符合的 1~2 段程式碼進行替換。
+3. "search" 的字串請務必從下方【目前首頁程式碼】直接節選連續存在的 1~3 行代碼片段（不要太長，確保唯一即可）。
+
+【管理員指令】：
 "${userInstruction}"
 
 【目前首頁程式碼】：
 ${currentContent}
 
-【任務規則】：
-請根據管理員指令，找出需要修改的程式碼片段進行局部替換（例如顏色樣式、文字、CSS class 等）。
-必須輸出純 JSON 格式：
+請回傳 JSON 格式：
 {
-  "summary": "一句話簡述修改重點（例如：將電腦版預約按鈕改為香檳金）",
+  "summary": "簡短摘要本次修改（例如：已將電腦版預約按鈕調整為香檳金色）",
   "operations": [
     {
-      "search": "必須 100% 完全存在於目前程式碼中的一段文字（請帶入周圍 1~2 行上下文確保唯一性）",
-      "replace": "替換後的完整程式碼片段"
+      "search": "程式碼中實際存在的一小段片段",
+      "replace": "替換後的代碼片段"
     }
   ]
-}
-請確保 search 內的字串完全吻合，且 replace 的 JSX 標籤完整合規。`;
+}`;
 
   const aiRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -138,39 +179,28 @@ ${currentContent}
   try {
     parsed = JSON.parse(rawJson);
   } catch {
-    return { success: false, message: "AI 解析指令格式失敗，請換個說法再試一次。" };
+    return { success: false, message: "AI 解析指令格式失敗，請重試。" };
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未找到需要變更的代碼片段。" };
+    return { success: false, message: "AI 未能定位到對應代碼，請嘗試換個說法。" };
   }
 
-  // 3. 執行局部精準替換
+  // 3. 執行彈性局部替換
   let updatedContent = currentContent;
   let appliedCount = 0;
 
   for (const op of parsed.operations) {
     if (!op.search || !op.replace) continue;
-
-    // 精準匹配
-    if (updatedContent.includes(op.search)) {
-      updatedContent = updatedContent.replaceAll(op.search, op.replace);
+    const res = applyFlexibleReplace(updatedContent, op.search, op.replace);
+    if (res.ok) {
+      updatedContent = res.newContent;
       appliedCount++;
-    } else {
-      // 換行符容錯匹配 (\r\n vs \n)
-      const normContent = updatedContent.replace(/\r\n/g, "\n");
-      const normSearch = op.search.replace(/\r\n/g, "\n");
-      const normReplace = op.replace.replace(/\r\n/g, "\n");
-
-      if (normContent.includes(normSearch)) {
-        updatedContent = normContent.replaceAll(normSearch, normReplace);
-        appliedCount++;
-      }
     }
   }
 
   if (appliedCount === 0) {
-    return { success: false, message: "找不到對應的代碼區塊進行替換，請描述更具體一些。" };
+    return { success: false, message: "代碼片段匹配未命中，請稍後重試。" };
   }
 
   // 4. 將修改後的代碼 Commit 回 GitHub
