@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "redis";
 
-export const dynamic = "force-dynamic";
-
 const REDIS_URL =
   process.env.REDIS_URL ||
   process.env.STORAGE_URL ||
