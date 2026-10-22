@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-// 預設品牌配置
 const defaultConfig = {
   title: "SPORT CAFÉ",
   announcement: "民安少棒・巨人盃賽事直播中！",
@@ -17,7 +16,6 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
-  // 用戶端即時向 Redis 抓取最新 Live Config
   useEffect(() => {
     fetch("/api/config")
       .then((res) => res.json())
@@ -31,7 +29,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
-      {/* 跑馬燈 CSS */}
       <style>{`
         @keyframes marqueeSlide {
           0% { transform: translateX(45%); }
@@ -45,7 +42,7 @@ export default function HomePage() {
         }
       `}</style>
 
-      {/* 1. 頂部酒紅動態公告欄 */}
+      {/* 1. 頂部公告欄 */}
       <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
@@ -63,7 +60,7 @@ export default function HomePage() {
         </div>
       </aside>
 
-      {/* 2. 英爵頂級導覽列 */}
+      {/* 2. 頂部導覽列 */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-base shadow-sm">
@@ -74,7 +71,6 @@ export default function HomePage() {
           </span>
         </div>
 
-        {/* 桌面導覽連結 */}
         <nav className="hidden lg:flex items-center gap-7 text-[13px] font-medium text-stone-700 tracking-wider">
           <a href="#about" className="hover:text-[#7A1B28] transition">關於本所</a>
           <a href="#services" className="hover:text-[#7A1B28] transition">服務項目</a>
@@ -86,15 +82,12 @@ export default function HomePage() {
           <a href="#contact" className="hover:text-[#7A1B28] transition">線上客服</a>
         </nav>
 
-        {/* 右側搜尋與漢堡選單按鈕 */}
         <div className="flex items-center gap-5">
           <button aria-label="搜尋" className="text-stone-700 hover:text-[#7A1B28] transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m0 0A7.5 7.5 0 105.2 5.2a7.5 7.5 0 0010.6 10.6z" />
             </svg>
           </button>
-
-          {/* 右上方三條線漢堡按鈕 */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="選單"
@@ -113,7 +106,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* 3. 點擊三條線展開的全螢幕分類選單（英爵同款） */}
+      {/* 3. 全螢幕漢堡分類選單 */}
       {menuOpen && (
         <div className="fixed inset-0 top-[110px] bg-white z-40 overflow-y-auto px-6 py-8 shadow-2xl">
           <div className="max-w-md mx-auto bg-[#7A1B28] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
@@ -198,7 +191,84 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* 5. 英爵同款手機底部固定聯絡列 */}
+      {/* 5. 英爵同款頂級 Footer（完美復刻據點、諮詢專線與快速連結） */}
+      <footer id="stores" className="bg-[#EFEAE4] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+          {/* 品牌與免責聲明 */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-8 h-8 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-sm">
+                S
+              </div>
+              <span className="font-bold tracking-widest text-lg text-[#7A1B28]">
+                SPORT CAFÉ
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-500 leading-relaxed mb-6">
+              ※任何訓練均有其風險，本網站圖文僅供參考，實際狀況須由專業教練進行評估指導而定。
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">ig</span>
+              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">fb</span>
+              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">yt</span>
+            </div>
+          </div>
+
+          {/* 診所/據點資訊 */}
+          <div>
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">診所據點</div>
+            <div className="space-y-4 text-xs text-stone-600">
+              <div>
+                <div className="font-bold text-stone-800 mb-0.5">台北南京館</div>
+                <div>📍 台北市南京東路三段331號2樓</div>
+                <div className="text-[#7A1B28]">📞 02-77074669</div>
+              </div>
+              <div>
+                <div className="font-bold text-stone-800 mb-0.5">台北信義館</div>
+                <div>📍 台北市信義路四段206號</div>
+                <div className="text-[#7A1B28]">📞 02-77074669</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 聯絡我們 */}
+          <div id="contact">
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">聯絡我們</div>
+            <div className="text-xs text-stone-500 mb-1">諮詢專線</div>
+            <div className="text-xl font-serif font-bold text-[#7A1B28] mb-4">02-77074669</div>
+            <div className="text-xs text-stone-500 mb-2">客服預約諮詢</div>
+            <div className="flex flex-col gap-2">
+              <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-[#1B8A3E] text-white text-xs font-bold text-center shadow-sm">
+                LINE 台北館
+              </a>
+              <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-[#1B8A3E] text-white text-xs font-bold text-center shadow-sm">
+                LINE 竹北館
+              </a>
+            </div>
+          </div>
+
+          {/* 快速連結 */}
+          <div>
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">快速連結</div>
+            <ul className="space-y-2 text-xs text-stone-600">
+              <li><a href="#services" className="hover:text-[#7A1B28] transition">服務項目[cite: 27]</a></li>
+              <li><a href="#experts" className="hover:text-[#7A1B28] transition">醫師團隊[cite: 27]</a></li>
+              <li><a href="#experts" className="hover:text-[#7A1B28] transition">醫師專欄[cite: 27]</a></li>
+              <li><a href="#sharing" className="hover:text-[#7A1B28] transition">美麗見證[cite: 27]</a></li>
+              <li><a href="#stores" className="hover:text-[#7A1B28] transition">門診時間[cite: 27]</a></li>
+              <li><a href="#contact" className="hover:text-[#7A1B28] transition">常見問題[cite: 27]</a></li>
+              <li><a href="#contact" className="hover:text-[#7A1B28] transition">線上客服[cite: 27]</a></li>
+              <li><a href="#privacy" className="hover:text-[#7A1B28] transition">隱私權政策[cite: 27]</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="max-w-7xl mx-auto border-t border-stone-300/60 pt-6 text-center text-xs text-stone-500">
+          <p>Copyright © 2026 英爵醫美 WBeauty[cite: 27]</p>
+        </div>
+      </footer>
+
+      {/* 6. 手機底部固定導覽列（含右下角 ＋ 彈出選單） */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
@@ -231,7 +301,7 @@ export default function HomePage() {
         </button>
       </nav>
 
-      {/* 6. 點擊右下角「＋」彈出的聯絡方式選單 */}
+      {/* 7. 右下角「＋」彈出選單 */}
       {contactOpen && (
         <div className="fixed bottom-[60px] right-3 z-50 bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
           <div className="text-xs font-bold text-[#7A1B28] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
