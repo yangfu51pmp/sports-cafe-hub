@@ -5,7 +5,7 @@ const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || process.en
 
 const defaultServices = [
   { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
-  { title: "專業嚴選裝備", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
+  { title: "職人嚴選裝備", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
   { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
   { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
 ];
@@ -29,10 +29,10 @@ export async function POST(req: Request) {
 
         let aiResponse = "收到！已為您調整完成。";
 
-        // 精準解析「A 改成 B」指令
+        // 徹底淨化使用者訊息，精準抓取「A 改成 B」
         if (userText.includes("改")) {
-          // 清除提及標籤，萃取指令內容
-          const cleanText = userText.replace(/@.*?\s/g, "").trim();
+          // 移除所有 @ 提及與群組機器人名字
+          const cleanText = userText.replace(/@\S+/g, "").replace(/管理助手/g, "").trim();
           const match = cleanText.match(/(.+?)\s*改成\s*(.+)/);
 
           if (match) {
@@ -52,16 +52,17 @@ export async function POST(req: Request) {
               await client.set("site_services", JSON.stringify(services));
               aiResponse = `【Sport Cafe 管家】已將「${targetName}」順利改為「${newName}」。`;
             } else {
-              aiResponse = `【Sport Cafe 管家】找不到「${targetName}」，目前項目有：${services.map((s:any)=>s.title).join("、")}`;
+              aiResponse = `【Sport Cafe 管家】找不到項目「${targetName}」。`;
             }
           }
         }
 
         await client.quit();
 
-        // 穩定支援 LINE 預覽的截圖 URL
+        // 使用 Microlink 穩定圖檔直出 API，解決 LINE 灰框問題
+        const targetUrl = encodeURIComponent("https://sports-cafe-hub.vercel.app");
         const timestamp = Date.now();
-        const screenshotUrl = `https://image.thum.io/get/width/600/crop/800/noanimate/https://sports-cafe-hub.vercel.app?t=${timestamp}`;
+        const screenshotUrl = `https://api.microlink.io/?url=${targetUrl}&screenshot=true&meta=false&embed=screenshot.url&waitFor=1000&t=${timestamp}`;
 
         if (process.env.LINE_CHANNEL_ACCESS_TOKEN && replyToken) {
           const messages: any[] = [
