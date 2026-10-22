@@ -11,7 +11,7 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
-// 支援同時傳送「文字」與「手機版實機截圖」
+// 支援同時傳送文字與截圖
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
 
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       const replyToken = event.replyToken;
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
 
-      // 1. 群組過濾：在群組內「只有被 @ 或明確叫助手」時才動作，其餘一律徹底靜音
+      // 1. 群組過濾：在群組內只有明確 @機器人 或叫助手時才動作，其餘完全靜音
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
@@ -85,13 +85,13 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 清理輸入文字（去除 @標記 與外層引號）
+      // 2. 清理文字標籤
       let cleanText = rawText
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
 
-      // 3. 管理員身分白名單驗證
+      // 3. 白名單管理員驗證
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
         if (!isGroupChat) {
@@ -100,8 +100,27 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 4. 稱讚與日常禮貌問候互動回覆
-      const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒"];
+      // 4. 新增：主動索取截圖指令（支援「截圖」、「截取首頁」、「看畫面」等）
+      const screenshotKeywords = ["截圖", "截取", "截", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
+      const isRequestingScreenshot = screenshotKeywords.some((kw) => cleanText.includes(kw));
+
+      if (
+        isRequestingScreenshot &&
+        !cleanText.includes("改為") &&
+        !cleanText.includes("換成") &&
+        !cleanText.includes("http")
+      ) {
+        const screenshot = await captureWebsiteScreenshot();
+        await replyLine(
+          replyToken,
+          "【Sport Cafe 管理助手】\n已為您即時抓取最新手機版官網畫面：\nhttps://sports-cafe-hub.vercel.app",
+          screenshot
+        );
+        continue;
+      }
+
+      // 5. 稱讚與日常問候互動
+      const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
       const isPraise = praiseKeywords.some((kw) => cleanText.includes(kw));
 
       if (
@@ -118,7 +137,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 第一重保險：網址直接綁定公告
+      // 6. 第一重保險：網址直接綁定公告
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
       if (
         urlMatch &&
@@ -144,7 +163,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 6. 第一重保險：網站大標題直接修改
+      // 7. 第一重保險：主標題直接修改
       if (
         cleanText.includes("標題") &&
         (cleanText.includes("改為") ||
@@ -169,7 +188,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 第一重保險：門市公告直接修改
+      // 8. 第一重保險：公告直接修改
       let directNotice: string | null = null;
       if (
         cleanText.includes("公告") &&
@@ -204,7 +223,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 8. 第二重保險：Gemini 自然語言解析
+      // 9. 第二重保險：Gemini 自然語意辨識
       let parsedNotice: string | null = null;
       let parsedTitle: string | null = null;
       let parsedUrl: string | null = null;
@@ -212,7 +231,7 @@ export async function POST(req: NextRequest) {
       if (GEMINI_API_KEY && cleanText.length > 2) {
         try {
           const prompt = `你是一個網站後台管理助理。請判斷管理員輸入是否為修改網站內容的指令。
-若是指令，請提取欄位並回傳 JSON；若純粹是用戶之間的日常聊天、閒聊、非修改指令，請回傳 null。
+若是指令，請提取欄位並回傳 JSON；若純粹是用戶之間的日常聊天、非修改指令，請回傳 null。
 
 欄位說明：
 - announcement: 公告或活動文字 (若未提及則為 null)
@@ -222,7 +241,7 @@ export async function POST(req: NextRequest) {
 管理員輸入: "${cleanText}"
 
 僅回傳純 JSON 格式（不要包含 markdown）：
-{"announcement": null, "announcement_url": null, "title": "民安少棒贏球了！"}
+{"announcement": null, "announcement_url": null, "title": null}
 若非指令請只回傳: null`;
 
           const res = await fetch(
@@ -251,7 +270,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 9. AI 解析成功寫入 Redis 並截圖
+      // 10. 寫入 Redis 並拍照回報
       if ((parsedNotice || parsedTitle || parsedUrl) && REDIS_URL) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
@@ -276,14 +295,6 @@ export async function POST(req: NextRequest) {
         const screenshot = await captureWebsiteScreenshot();
         await replyLine(replyToken, replyMsg, screenshot);
         continue;
-      }
-
-      // 10. 未識別指令時：僅在 1 對 1 私聊時提示引導
-      if (!isGroupChat) {
-        await replyLine(
-          replyToken,
-          "【Sport Cafe 管理助手】\n已確認管理員身分！您可以交代我：\n\n• 標題改為：民安少棒贏球了！\n• 公告加入連結：https://...\n• 把公告改為：今日下午 2 點營業"
-        );
       }
     }
 
