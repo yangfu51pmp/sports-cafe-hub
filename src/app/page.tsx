@@ -1,5 +1,4 @@
-import { Suspense } from "react";
-import { connection } from "next/server";
+import { headers } from "next/headers";
 import { createClient } from "redis";
 
 const REDIS_URL =
@@ -18,7 +17,7 @@ const defaultConfig = {
   btnStyle: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]",
 };
 
-// 讀取 Redis 即時設定
+// 讀取 Redis 即時動態配置
 async function getSiteConfig() {
   if (!REDIS_URL) return defaultConfig;
 
@@ -49,8 +48,11 @@ async function getSiteConfig() {
   }
 }
 
-// 視覺排版組件
-function CafeView({ config }: { config: typeof defaultConfig }) {
+export default async function HomePage() {
+  // 透過 headers() 明確宣告動態請求，打包期（npm run build）不預渲染，徹底根絕 Redis 隨機數報錯
+  await headers();
+  const config = await getSiteConfig();
+
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col font-sans">
       {/* 頂部動態公告欄（支援上下跳動、呼吸閃爍、跑馬燈） */}
@@ -156,21 +158,5 @@ function CafeView({ config }: { config: typeof defaultConfig }) {
         <p>© 2026 SPORT CAFÉ GROUP. All rights reserved.</p>
       </footer>
     </div>
-  );
-}
-
-// 真實訪客連線時載入動態配置
-async function DynamicHomePage() {
-  await connection();
-  const config = await getSiteConfig();
-  return <CafeView config={config} />;
-}
-
-// 頁面主入口：透過 Suspense 隔離打包期與執行期
-export default function HomePage() {
-  return (
-    <Suspense fallback={<CafeView config={defaultConfig} />}>
-      <DynamicHomePage />
-    </Suspense>
   );
 }
