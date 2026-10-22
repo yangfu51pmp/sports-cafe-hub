@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "redis";
-import { GoogleGenAI } from "@google/genai";
 
 const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || process.env.KV_URL || "";
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 const defaultServices = [
   { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
@@ -31,57 +30,69 @@ export async function POST(req: Request) {
 
         let aiResponseText = "收到！已為您完成網站調整。";
 
-        // 使用 Gemini 2.5 Pro 進行高智能指令解析
+        // 透過 Gemini REST API 進行高智能指令解析
         try {
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-pro",
-            contents: `
-              You are the intelligent AI web concierge for "Sport Café".
-              Current services list: ${JSON.stringify(services)}
-              
-              User instruction: "${userText}"
-              
-              Analyze the instruction. If the user wants to rename a service item (e.g. "X 改成 Y"), update that item's title in the services array.
-              Return a strict JSON format with keys:
-              - "updated": boolean (true if services were modified)
-              - "services": the full updated array of services (with title, desc, tag, img)
-              - "reply": short polite confirmation message in Traditional Chinese.
-            `,
+          const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      text: `You are the intelligent AI web concierge for "Sport Café".
+Current services list: ${JSON.stringify(services)}
+
+User instruction: "${userText}"
+
+Analyze the instruction. If the user wants to rename a service item (e.g. "X 改成 Y"), update that item's title in the services array.
+Return a valid JSON object ONLY (no markdown backticks) with keys:
+- "updated": boolean (true if services were modified)
+- "services": the full updated array of services (with title, desc, tag, img)
+- "reply": short polite confirmation message in Traditional Chinese.`
+                    }
+                  ]
+                }
+              ]
+            })
           });
 
-          const rawText = response.text || "{}";
-          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed.updated && Array.isArray(parsed.services)) {
-              services = parsed.services;
-              await client.set("site_services", JSON.stringify(services));
-            }
-            if (parsed.reply) {
-              aiResponseText = `【Sport Cafe 智慧管家】${parsed.reply}`;
-            }
+          const geminiData = await geminiRes.json();
+          const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+          const cleanJsonText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+          const parsed = JSON.parse(cleanJsonText);
+
+          if (parsed.updated && Array.isArray(parsed.services)) {
+            services = parsed.services;
+            await client.set("site_services", JSON.stringify(services));
+          }
+          if (parsed.reply) {
+            aiResponseText = `【Sport Cafe 智慧管家】${parsed.reply}`;
           }
         } catch (e) {
-          aiResponseText = "【Sport Cafe 智慧管家】收到您的指令，已完成同步更新！";
+          // 降級防護：若 AI 解析發生例外，使用智慧關鍵字直接替換
+          if (userText.includes("改成")) {
+            const parts = userText.replace(/@\S+/g, "").replace(/管理助手/g, "").trim().split("改成");
+            if (parts.length === 2) {
+              const target = parts[0].trim();
+              const replacement = parts[1].trim();
+              services = services.map((s: any) => s.title.includes(target) ? { ...s, title: replacement } : s);
+              await client.set("site_services", JSON.stringify(services));
+              aiResponseText = `【Sport Cafe 智慧管家】已將項目更新為「${replacement}」。`;
+            }
+          }
         }
 
         await client.quit();
 
-        // 確保圖片格式完美符合 LINE 要求（直出 PNG 結尾並預留載入時間）
+        // 產生即時實機截圖 URL
         const timestamp = Date.now();
         const screenshotUrl = `https://image.thum.io/get/width/600/crop/800/noanimate/wait/2000/https://sports-cafe-hub.vercel.app?t=${timestamp}`;
 
         if (process.env.LINE_CHANNEL_ACCESS_TOKEN && replyToken) {
           const messages: any[] = [
-            {
-              type: "text",
-              text: aiResponseText,
-            },
-            {
-              type: "image",
-              originalContentUrl: screenshotUrl,
-              previewImageUrl: screenshotUrl,
-            },
+            { type: "text", text: aiResponseText },
+            { type: "image", originalContentUrl: screenshotUrl, previewImageUrl: screenshotUrl },
           ];
 
           if (source && source.groupId) {
