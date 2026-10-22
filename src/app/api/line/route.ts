@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "redis";
 
-// 設定雲端函式最長執行時間為 60 秒
 export const maxDuration = 60;
 
 const REDIS_URL =
@@ -18,13 +17,14 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
-// 內建精品圖庫（棒球、極致手沖、日式空間）
+// 精品高解析圖庫（補入高奢精品咖啡廳專屬圖）
 const CURATED_IMAGES = {
-  baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop", // 棒球選手打擊
-  baseball_gear: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=1600&auto=format&fit=crop",   // 棒球手套與紅線球特寫
-  coffee_bar: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=1600&auto=format&fit=crop",      // 日式精品手沖吧台
-  coffee_pourover: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 職人手沖滴落
-  coffee_cup: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",      // 原版經典俯瞰咖啡
+  luxury_cafe: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop", // 極簡美學高奢精品咖啡廳
+  coffee_bar: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=1600&auto=format&fit=crop",  // 日式木質咖啡吧台空間
+  coffee_pourover: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 職人手沖咖啡滴落特寫
+  coffee_cup: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",  // 經典俯瞰黑咖啡
+  baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop", // 棒球選手打擊/夜間球場
+  baseball_gear: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=1600&auto=format&fit=crop",   // 棒球手套與紅線球
 };
 
 // 1. 即時被動回覆函式
@@ -58,7 +58,7 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   }
 }
 
-// 2. 主動推播訊息函式（改版完成後主動發送截圖到群組）
+// 2. 主動推播訊息函式
 async function pushLine(to: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
@@ -89,7 +89,7 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 3. 雲端無人瀏覽器即時截圖（支援電腦版 1280x800 與手機版 390x844 自適應）
+// 3. 雲端截圖（電腦 1280x800 / 手機 390x844）
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -175,26 +175,21 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
 
   const customUrlMatch = userInstruction.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp|avif)[^\s"'<>]*|https:\/\/images\.unsplash\.com\/[^\s"'<>]+/i);
 
-  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端工程師。
+  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端架構師。
 以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
-【精選圖庫映射（用於更換首頁 Hero 背景圖）】：
-- 棒球選手打擊/熱血賽事: "${CURATED_IMAGES.baseball_action}"
-- 棒球手套/紅線球特寫: "${CURATED_IMAGES.baseball_gear}"
-- 日式質感咖啡吧台空間: "${CURATED_IMAGES.coffee_bar}"
-- 職人手沖咖啡滴落: "${CURATED_IMAGES.coffee_pourover}"
-- 經典俯瞰咖啡杯: "${CURATED_IMAGES.coffee_cup}"
-${customUrlMatch ? `- 用戶指定的專屬圖片網址: "${customUrlMatch[0]}"` : ""}
-
-【色彩庫與 Class 映射】：
-- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
-- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
-- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
+【精選圖庫映射（用於替換首頁 Hero 背景圖）】：
+- 高奢/精品咖啡廳/極簡美學空間: "${CURATED_IMAGES.luxury_cafe}"
+- 日式木質咖啡吧台空間: "${CURATED_IMAGES.coffee_bar}"
+- 職人手沖咖啡滴落特寫: "${CURATED_IMAGES.coffee_pourover}"
+- 經典俯瞰黑咖啡: "${CURATED_IMAGES.coffee_cup}"
+- 棒球選手打擊/熱血賽事球場: "${CURATED_IMAGES.baseball_action}"
+- 棒球手套與紅線球特寫: "${CURATED_IMAGES.baseball_gear}"
+${customUrlMatch ? `- 用戶指定自選圖片: "${customUrlMatch[0]}"` : ""}
 
 【重要處理規則】：
-1. 跑馬燈：若指令提及公告欄改為跑馬燈，請定位頂部的 aside 區塊，修改樣式使其呈現跑馬燈效果。
-2. 替換首頁背景圖：若指令提及換圖、背景圖、照片、咖啡圖、棒球圖，請找出首頁 Hero 區塊的 backgroundImage 並替換成符合語意的圖片網址。
-3. 門市預約按鈕：用戶提及「門市預約按鈕」，通常指門市據點卡片內的「LINE 台北預約」與「LINE 仙台交流」按鈕。
+1. 替換首頁背景圖：若指令提及換圖、背景圖、咖啡廳、高奢、精品，請精準定位首頁 Hero 區塊的 backgroundImage 並替換為對應的精選圖庫網址。
+2. 跑馬燈：若指令提及跑馬燈，修改頂部 aside 樣式。
 
 【管理員指令】：
 "${userInstruction}"
@@ -227,7 +222,7 @@ ${currentContent}`;
     console.error("AI parse error:", err);
   }
 
-  // 智慧備援兜底
+  // 智慧備援兜底（校正預設為高奢精品咖啡廳）
   if (!parsed.operations || parsed.operations.length === 0) {
     const text = userInstruction.toLowerCase();
     parsed.operations = [];
@@ -238,16 +233,25 @@ ${currentContent}`;
         search: `<span className="font-medium truncate max-w-[280px] md:max-w-2xl">`,
         replace: `<span className="font-medium whitespace-nowrap animate-pulse">`,
       });
-    } else if (text.includes("圖") || text.includes("照") || text.includes("背景")) {
-      let targetImg = CURATED_IMAGES.baseball_action;
-      if (text.includes("手套") || text.includes("裝備")) targetImg = CURATED_IMAGES.baseball_gear;
-      else if (text.includes("吧台") || text.includes("空間")) targetImg = CURATED_IMAGES.coffee_bar;
-      else if (text.includes("手沖") || text.includes("滴落")) targetImg = CURATED_IMAGES.coffee_pourover;
-      else if (customUrlMatch) targetImg = customUrlMatch[0];
+    } else if (text.includes("圖") || text.includes("照") || text.includes("背景") || text.includes("咖啡")) {
+      // 依語意選圖，不再無腦預設棒球
+      let targetImg = CURATED_IMAGES.luxury_cafe; // 預設優先為高奢精品咖啡廳
+
+      if (text.includes("棒球") || text.includes("打擊") || text.includes("球場") || text.includes("賽事")) {
+        targetImg = CURATED_IMAGES.baseball_action;
+      } else if (text.includes("手套") || text.includes("裝備")) {
+        targetImg = CURATED_IMAGES.baseball_gear;
+      } else if (text.includes("手沖") || text.includes("滴落")) {
+        targetImg = CURATED_IMAGES.coffee_pourover;
+      } else if (text.includes("吧台") || text.includes("木質")) {
+        targetImg = CURATED_IMAGES.coffee_bar;
+      } else if (customUrlMatch) {
+        targetImg = customUrlMatch[0];
+      }
 
       const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
       if (bgMatch) {
-        parsed.summary = "將首頁背景大圖更換為全新主題視覺";
+        parsed.summary = "更換為高奢精品咖啡廳背景視覺";
         parsed.operations.push({
           search: bgMatch[0],
           replace: `backgroundImage: \`url('${targetImg}')\``,
@@ -257,7 +261,7 @@ ${currentContent}`;
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述需求。" };
+    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述。" };
   }
 
   let updatedContent = currentContent;
@@ -370,7 +374,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 6. 網址綁定公告（Redis 高速通道）
+      // 6. 網址綁定公告
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
       if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播")) && !cleanText.includes("背景") && !cleanText.includes("圖")) {
         const targetUrl = urlMatch[0];
@@ -390,7 +394,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 純文字標題與公告修改（Redis 高速通道）
+      // 7. 純文字標題與公告修改
       if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
         let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
         if (newTitle && REDIS_URL) {
@@ -460,7 +464,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 首頁圖換成棒球選手揮棒照片\n• 最上方公告欄改成跑馬燈模式\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 首頁背景換成高奢精品咖啡廳的照片\n• 最上方公告欄改成跑馬燈模式\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
         );
       }
     }
