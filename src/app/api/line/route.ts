@@ -29,10 +29,15 @@ export async function POST(req: Request) {
 
         let aiResponse = "收到！已為您調整完成。";
 
-        // 徹底淨化使用者訊息，精準抓取「A 改成 B」
         if (userText.includes("改")) {
-          // 移除所有 @ 提及與群組機器人名字
-          const cleanText = userText.replace(/@\S+/g, "").replace(/管理助手/g, "").trim();
+          // 強效淨化：移除 @ 提及、Sport、Cafe、管理助手，只保留真正的指令內容
+          const cleanText = userText
+            .replace(/@\S+/g, "")
+            .replace(/Sport/gi, "")
+            .replace(/Cafe/gi, "")
+            .replace(/管理助手/g, "")
+            .trim();
+
           const match = cleanText.match(/(.+?)\s*改成\s*(.+)/);
 
           if (match) {
@@ -59,7 +64,6 @@ export async function POST(req: Request) {
 
         await client.quit();
 
-        // 使用 Microlink 穩定圖檔直出 API，解決 LINE 灰框問題
         const targetUrl = encodeURIComponent("https://sports-cafe-hub.vercel.app");
         const timestamp = Date.now();
         const screenshotUrl = `https://api.microlink.io/?url=${targetUrl}&screenshot=true&meta=false&embed=screenshot.url&waitFor=1000&t=${timestamp}`;
