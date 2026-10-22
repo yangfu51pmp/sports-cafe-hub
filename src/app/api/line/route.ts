@@ -77,6 +77,14 @@ export async function POST(req: NextRequest) {
         try {
           const prompt = `你是一個網站後台管理助理。請根據管理員口語指令，提取要修改的欄位並回傳 JSON。
 欄位說明：
+- announcement: 任何關於門市臨時公告、營業時間變更、活動宣傳、店休通知等訊息，皆整理為簡潔的公告文字。若未提及則為 null。
+- title: 網站首頁的大標題文字。若未提及則為 null。
+
+管理員輸入: "${userText}"
+
+僅回傳純 JSON 格式，不要包含任何 markdown 或解說文字，例如:
+{"announcement": "今日門市營業時間調整為 14:00 開始", "title": null}`;
+欄位說明：
 - announcement: 公告文字 (若未提及則為 null)
 - title: 網站主標題 (若未提及則為 null)
 
