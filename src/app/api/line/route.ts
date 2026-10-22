@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "redis";
 
-// 設定雲端函式最長執行時間為 60 秒（支援背景等待部署與拍照）
+// 設定雲端函式最長執行時間為 60 秒
 export const maxDuration = 60;
 
 const REDIS_URL =
@@ -18,7 +18,7 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
-// 1. 即時被動回覆（使用 replyToken）
+// 1. 即時被動回覆
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
 
@@ -45,7 +45,7 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   });
 }
 
-// 2. 主動推播訊息（用於改版完成後主動發送截圖到群組）
+// 2. 主動推播訊息（用於改版完成後主動推播截圖）
 async function pushLine(to: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
@@ -76,16 +76,21 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 3. 雲端無人瀏覽器即時截圖
-async function captureWebsiteScreenshot(): Promise<string | null> {
+// 3. 雲端無人瀏覽器即時截圖（支援電腦版 1280x800 與手機版 390x844 自適應切換）
+async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
+    const isDesktop = device === "desktop";
     const targetUrl = `https://sports-cafe-hub.vercel.app?preview_key=cafe888&t=${Date.now()}`;
+    const width = isDesktop ? 1280 : 390;
+    const height = isDesktop ? 800 : 844;
+    const isMobileParam = isDesktop ? "false" : "true";
+
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
       targetUrl
-    )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=844`;
+    )}&screenshot=true&viewport.isMobile=${isMobileParam}&viewport.width=${width}&viewport.height=${height}`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7500);
+    const timer = setTimeout(() => controller.abort(), 8500);
 
     const res = await fetch(screenshotApi, { signal: controller.signal });
     clearTimeout(timer);
@@ -306,13 +311,21 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 4. 手動截圖指令
+      // 判斷當前指令是否涉及電腦版
+      const isDesktopIntent =
+        cleanText.includes("電腦") ||
+        cleanText.includes("桌機") ||
+        cleanText.includes("筆電") ||
+        cleanText.includes("桌面");
+
+      // 4. 手動截圖指令（支援「電腦版截圖」與「手機版截圖」）
       const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
       if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換")) {
-        const screenshot = await captureWebsiteScreenshot();
+        const deviceType = isDesktopIntent ? "desktop" : "mobile";
+        const screenshot = await captureWebsiteScreenshot(deviceType);
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n已為您即時抓取最新手機版官網畫面：\nhttps://sports-cafe-hub.vercel.app",
+          `【Sport Cafe 管理助手】\n已為您即時抓取最新【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】官網畫面：\nhttps://sports-cafe-hub.vercel.app`,
           screenshot
         );
         continue;
@@ -338,7 +351,7 @@ export async function POST(req: NextRequest) {
           await client.set("site_announcement_url", targetUrl);
           await client.quit();
 
-          const screenshot = await captureWebsiteScreenshot();
+          const screenshot = await captureWebsiteScreenshot("mobile");
           await replyLine(
             replyToken,
             `【Sport Cafe 管理助手】\n已成功將公告連結綁定為：\n${targetUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
@@ -357,7 +370,7 @@ export async function POST(req: NextRequest) {
           await client.set("site_title", newTitle);
           await client.quit();
 
-          const screenshot = await captureWebsiteScreenshot();
+          const screenshot = await captureWebsiteScreenshot("mobile");
           await replyLine(
             replyToken,
             `【Sport Cafe 管理助手】\n已成功更新網站主標題：\n「${newTitle}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
@@ -375,7 +388,7 @@ export async function POST(req: NextRequest) {
           await client.set("site_announcement", directNotice);
           await client.quit();
 
-          const screenshot = await captureWebsiteScreenshot();
+          const screenshot = await captureWebsiteScreenshot("mobile");
           await replyLine(
             replyToken,
             `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
@@ -385,7 +398,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. 智能代碼修改核心（改版完成後自動倒數並主動推播截圖回報）
+      // 8. 智能代碼修改核心（自適應回傳電腦版或手機版實機截圖）
       const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "換成", "調整", "增加", "刪除", "電腦版", "手機版"];
       const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
 
@@ -396,21 +409,18 @@ export async function POST(req: NextRequest) {
           // 第一步：立即回覆確認
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已推送到 GitHub，Vercel 正在自動部署中。約 25 秒完成後，我會「自動拍照回傳」給您驗收，請稍候！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已推送到 GitHub，Vercel 正在自動部署中。約 25 秒完成後，我會自動拍下【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】畫面回傳驗收！`
           );
 
-          // 第二步：背景等待部署完成，並自動主動推播（Push）最新截圖到群組！
+          // 第二步：背景等待部署完成，主動依據裝置型態推播對應截圖
           after(async () => {
-            // 等待 Vercel 建置部署（約 24 秒）
             await new Promise((resolve) => setTimeout(resolve, 24000));
 
-            // 自動拍下最新畫面
-            const screenshot = await captureWebsiteScreenshot();
+            const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
 
-            // 主動發送回群組
             await pushLine(
               targetChatId,
-              `【Sport Cafe AI 工程師】🎉\n最新改版已成功部署上線！\n實機截圖回報如下：\nhttps://sports-cafe-hub.vercel.app`,
+              `【Sport Cafe AI 工程師】🎉\n${isDesktopIntent ? "電腦版" : "手機版"}最新改版已成功部署上線！\n實機截圖回報如下：\nhttps://sports-cafe-hub.vercel.app`,
               screenshot
             );
           });
@@ -426,7 +436,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版的按鈕顏色調整為...\n• 標題改為：最新戰況\n• 截圖（查看目前畫面）"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖\n• 標題改為：最新戰況"
         );
       }
     }
