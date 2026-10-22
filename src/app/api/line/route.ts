@@ -21,23 +21,23 @@ export async function POST(req: Request) {
         const replyToken = event.replyToken;
         const source = event.source;
 
-        // 1. 初始化 Redis
         const client = createClient({ url: REDIS_URL });
         await client.connect();
 
-        // 讀取現有服務項目，若無則用預設值
         const existingData = await client.get("site_services");
         let services = existingData ? JSON.parse(existingData) : defaultServices;
 
         let aiResponse = "收到！已為您調整完成。";
 
-        // 2. 智慧解析「X 改成 Y」指令
-        if (userText.includes("改成") || userText.includes("改成")) {
-          // 簡單拆解指令格式：例如 "專業嚴選裝備 改成 職人嚴選裝備"
-          const parts = userText.replace(/@.*?\s/, "").split(/改成|改成/);
-          if (parts.length === 2) {
-            const targetName = parts[0].trim();
-            const newName = parts[1].trim();
+        // 精準解析「A 改成 B」指令
+        if (userText.includes("改")) {
+          // 清除提及標籤，萃取指令內容
+          const cleanText = userText.replace(/@.*?\s/g, "").trim();
+          const match = cleanText.match(/(.+?)\s*改成\s*(.+)/);
+
+          if (match) {
+            const targetName = match[1].trim();
+            const newName = match[2].trim();
 
             let found = false;
             services = services.map((item: any) => {
@@ -52,18 +52,17 @@ export async function POST(req: Request) {
               await client.set("site_services", JSON.stringify(services));
               aiResponse = `【Sport Cafe 管家】已將「${targetName}」順利改為「${newName}」。`;
             } else {
-              aiResponse = `【Sport Cafe 管家】找不到您指定的項目「${targetName}」，請確認名稱是否正確。`;
+              aiResponse = `【Sport Cafe 管家】找不到「${targetName}」，目前項目有：${services.map((s:any)=>s.title).join("、")}`;
             }
           }
         }
 
         await client.quit();
 
-        // 3. 產生極速截圖 URL
+        // 穩定支援 LINE 預覽的截圖 URL
         const timestamp = Date.now();
-        const screenshotUrl = `https://image.thum.io/get/maxAge/1/width/600/crop/800/https://sports-cafe-hub.vercel.app?t=${timestamp}`;
+        const screenshotUrl = `https://image.thum.io/get/width/600/crop/800/noanimate/https://sports-cafe-hub.vercel.app?t=${timestamp}`;
 
-        // 4. 回傳精簡訊息與截圖
         if (process.env.LINE_CHANNEL_ACCESS_TOKEN && replyToken) {
           const messages: any[] = [
             {
@@ -84,10 +83,7 @@ export async function POST(req: Request) {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
               },
-              body: JSON.stringify({
-                to: source.groupId,
-                messages: messages,
-              }),
+              body: JSON.stringify({ to: source.groupId, messages }),
             });
           } else {
             await fetch("https://api.line.me/v2/bot/message/reply", {
@@ -96,10 +92,7 @@ export async function POST(req: Request) {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
               },
-              body: JSON.stringify({
-                replyToken: replyToken,
-                messages: messages,
-              }),
+              body: JSON.stringify({ replyToken, messages }),
             });
           }
         }
