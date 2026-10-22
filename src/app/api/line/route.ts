@@ -18,6 +18,15 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
+// 內建精品圖庫（棒球、極致手沖、日式空間）
+const CURATED_IMAGES = {
+  baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop", // 棒球打擊熱血
+  baseball_gear: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=1600&auto=format&fit=crop",   // 棒球手套與紅線球
+  coffee_bar: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=1600&auto=format&fit=crop",      // 日式精品咖啡吧台
+  coffee_pourover: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 精緻職人手沖
+  coffee_cup: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",      // 原版經典俯瞰咖啡
+};
+
 // 1. 即時被動回覆
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
@@ -36,35 +45,7 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      replyToken,
-      messages,
-    }),
-  });
-}
-
-// 2. 主動推播訊息（改版完成後主動推播截圖）
-async function pushLine(to: string, text: string, imageUrl?: string | null) {
-  if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
-
-  const messages: any[] = [{ type: "text", text }];
-
-  if (imageUrl) {
-    messages.push({
-      type: "image",
-      originalContentUrl: imageUrl,
-      previewImageUrl: imageUrl,
-    });
-  }
-
-  try {
-    await fetch("https://api.line.me/v2/bot/message/push", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`, }, body: JSON.stringify({ replyToken, messages, }), }); }  // 2. 主動推播訊息（改版完成後主動推播截圖） async function pushLine(to: string, text: string, imageUrl?: string \vert{} null) { if (!LINE_CHANNEL_ACCESS_TOKEN \vert{}\vert{} !to) return;  const messages: any[] = [{ type: "text", text }];  if (imageUrl) { messages.push({ type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl, }); }  try { await fetch("https://api.line.me/v2/bot/message/push", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
       },
       body: JSON.stringify({
         to,
@@ -76,16 +57,11 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 3. 雲端無人瀏覽器即時截圖（支援電腦 1280x800 與手機 390x844 自適應）
+// 3. 雲端無人瀏覽器即時截圖
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
-    const targetUrl = `https://sports-cafe-hub.vercel.app?preview_key=cafe888&t=${Date.now()}`;
-    const width = isDesktop ? 1280 : 390;
-    const height = isDesktop ? 800 : 844;
-    const isMobileParam = isDesktop ? "false" : "true";
-
-    const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
+    const targetUrl = `https://sports-cafe-hub.vercel.app?preview_key=cafe888&t=${Date.now()}`; const width = isDesktop ? 1280 : 390; const height = isDesktop ? 800 : 844; const isMobileParam = isDesktop ? "false" : "true";  const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
       targetUrl
     )}&screenshot=true&viewport.isMobile=${isMobileParam}&viewport.width=${width}&viewport.height=${height}`;
 
@@ -136,7 +112,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
   return { newContent: content, ok: false };
 }
 
-// 5. GitHub 程式碼修改核心
+// 5. GitHub 程式碼修改核心（支援圖片智能替換與圖庫字典）
 async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
@@ -162,33 +138,35 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
+  // 檢查用戶輸入是否包含自定義圖片網址
+  const customUrlMatch = userInstruction.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp|avif)[^\s"'<>]*|https:\/\/images\.unsplash\.com\/[^\s"'<>]+/i);
+
   const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端架構師。
 以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
-【設計規範與常見情境】：
-1. 跑馬燈模式（Marquee）：若指令提及將最上方公告欄改為跑馬燈，請定位頂部的 <aside> 區塊，使用純 CSS / Tailwind 做出滑順橫向循環滾動（例如加入 overflow-hidden、whitespace-nowrap、搭配 inline CSS 或連續重複內容滾動）。
-2. 色彩庫映射：
-   - 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
-   - LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
-   - 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
-3. 門市預約按鈕：用戶提及「門市預約按鈕」，通常指門市據點卡片內的「LINE 台北預約」與「LINE 仙台交流」按鈕。
+【精選圖庫映射（用於替換首頁 Hero 背景圖）】：
+- 棒球選手打擊/熱血賽事: "${CURATED_IMAGES.baseball_action}"
+- 棒球手套/紅線球特寫: "${CURATED_IMAGES.baseball_gear}"
+- 日式質感咖啡吧台空間: "${CURATED_IMAGES.coffee_bar}"
+- 職人手沖咖啡滴落: "${CURATED_IMAGES.coffee_pourover}"
+- 經典俯瞰咖啡杯: "${CURATED_IMAGES.coffee_cup}"
+${customUrlMatch ? `- 用戶指定的專屬圖片網址: "${customUrlMatch[0]}"` : ""}
+
+【色彩庫映射】：
+- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
+- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
+- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
+
+【重要處理規則】：
+1. 替換首頁背景圖：若指令提及「換圖、背景圖、照片、咖啡圖、棒球圖」，請找出首頁 Hero 區塊的 \`backgroundImage: \\\`url('...')\\\`\` 並替換成符合語意的精選圖庫網址。
+2. 即使指令是問句（例如「可以換成棒球的圖嗎？」），也直接視為肯定需求，挑選最適合的棒球圖片替換上去！
+3. 輸出簡潔唯一的代碼片段做替換。
 
 【管理員指令】：
 "${userInstruction}"
 
 【目前首頁程式碼】：
-${currentContent}
-
-請回傳 JSON 格式：
-{
-  "summary": "一句話簡述修改（例如：已將頂部公告欄改為跑馬燈滾動模式）",
-  "operations": [
-    {
-      "search": "代碼中實際存在的一小段片段",
-      "replace": "替換後的代碼片段"
-    }
-  ]
-}`;
+${currentContent}`;
 
   let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }> } = {};
 
@@ -215,22 +193,34 @@ ${currentContent}
     console.error("AI parse error:", err);
   }
 
-  // 備援兜底：若指令包含跑馬燈且 AI 猶豫，直接套用頂部跑馬燈模式
+  // 智慧備援兜底：若指令提及換圖且 AI 未回傳，自動根據關鍵字替換背景圖
   if (!parsed.operations || parsed.operations.length === 0) {
     const text = userInstruction.toLowerCase();
-    if (text.includes("跑馬燈") || text.includes("滾動") || text.includes("marquee")) {
-      parsed.summary = "將最上方公告欄改為動態跑馬燈模式";
-      parsed.operations = [
-        {
-          search: `<span className="font-medium truncate max-w-[280px] md:max-w-2xl">`,
-          replace: `<span className="font-medium whitespace-nowrap animate-pulse">`,
-        },
-      ];
+    const isImageIntent = text.includes("圖") || text.includes("照") || text.includes("背景") || text.includes("image");
+
+    if (isImageIntent) {
+      let targetImg = CURATED_IMAGES.baseball_action; // 預設推薦棒球熱血圖
+      if (text.includes("手套") || text.includes("裝備")) targetImg = CURATED_IMAGES.baseball_gear;
+      else if (text.includes("吧台") || text.includes("空間")) targetImg = CURATED_IMAGES.coffee_bar;
+      else if (text.includes("手沖") || text.includes("滴落")) targetImg = CURATED_IMAGES.coffee_pourover;
+      else if (customUrlMatch) targetImg = customUrlMatch[0];
+
+      // 從原代碼中匹配目前的 backgroundImage
+      const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
+      if (bgMatch) {
+        parsed.summary = "將首頁背景大圖更換為全新主題視覺";
+        parsed.operations = [
+          {
+            search: bgMatch[0],
+            replace: `backgroundImage: \`url('${targetImg}')\``,
+          },
+        ];
+      }
     }
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述需求。" };
+    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述（例如：首頁換成棒球選手的照片）。" };
   }
 
   let updatedContent = currentContent;
@@ -287,7 +277,7 @@ export async function POST(req: NextRequest) {
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
       const targetChatId = (event.source as any).groupId || (event.source as any).roomId || userId;
 
-      // 1. 群組過濾：只要在群組內提到助手、Sport 或 Cafe 就觸發
+      // 1. 群組過濾
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
@@ -298,7 +288,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 徹底清理輸入文字（去除各類 @標籤 與頭尾引號）
+      // 2. 清理輸入文字
       let cleanText = rawText
         .replace(/@Sport\s*Caf[eé]\s*(管理)?助手/gi, "")
         .replace(/@\S+\s*/g, "")
@@ -336,17 +326,17 @@ export async function POST(req: NextRequest) {
 
       // 5. 稱讚與日常互動
       const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
-      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("模式") && !cleanText.includes("http")) {
+      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("換") && !cleanText.includes("圖") && !cleanText.includes("http")) {
         await replyLine(
           replyToken,
-          "謝謝誇獎！我隨時在線待命，有任何門市公告、排版樣式或按鈕顏色要調整，隨時 @ 我交代即可 😊⚾☕"
+          "謝謝誇獎！我隨時在線待命，有任何門市公告、首頁換圖、排版或顏色要調整，隨時 @ 我交代即可 😊⚾☕"
         );
         continue;
       }
 
       // 6. 網址綁定公告（Redis 高速通道）
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
-      if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
+      if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播")) && !cleanText.includes("背景") && !cleanText.includes("圖")) {
         const targetUrl = urlMatch[0];
         if (REDIS_URL) {
           const client = createClient({ url: REDIS_URL });
@@ -401,7 +391,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. 智能代碼修改核心（全語意接單：不再使用死板清單限制，由 AI 全權處理）
+      // 8. 智能代碼修改核心（全語意接單 + 換圖專屬支援）
       if (GITHUB_TOKEN && cleanText.length > 0) {
         const result = await modifyFrontendCode(cleanText);
 
@@ -434,7 +424,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 最上方公告欄改成跑馬燈模式\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 首頁圖換成棒球選手揮棒照片\n• 最上方公告欄改成跑馬燈模式\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
         );
       }
     }
