@@ -13,20 +13,21 @@ const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
-// 高奢精品視覺字典庫
-const CURATED_ASSETS = {
-  // 咖啡視覺系列
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
+const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
+
+// 精品高解析圖庫
+const CURATED_IMAGES = {
   pourover_craft: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop", // 職人手沖滴漏
-  original_americano: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop", // 經典俯瞰美式
-  iced_americano: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=1600&auto=format&fit=crop", // 冰塊美式咖啡特寫
-  latte_art: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop", // 精緻拉花
-  cafe_space: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop", // 高奢咖啡空間裝潢
-  // 棒球與運動系列
-  baseball_night_stadium: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop",
-  baseball_gear: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=1600&auto=format&fit=crop",
+  original_americano: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop", // 原版美式經典俯瞰
+  iced_americano: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=1600&auto=format&fit=crop", // 透亮冰美式
+  latte_art: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop", // 精品拉花拿鐵
+  cafe_space: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop", // 空間裝潢照
+  baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop", // 棒球打擊
 };
 
-// 讀取對話記憶
+// 讀取 Redis 對話記憶
 async function getChatHistory(chatId: string): Promise<string> {
   if (!REDIS_URL) return "";
   try {
@@ -37,14 +38,14 @@ async function getChatHistory(chatId: string): Promise<string> {
     if (!raw) return "";
 
     const list: Array<{ role: string; text: string }> = JSON.parse(raw);
-    return list.map((item) => `${item.role === "user" ? "管理員" : "管家"}: ${item.text}`).join("\n");
+    return list.map((item) => `${item.role === "user" ? "管理員" : "助手"}: ${item.text}`).join("\n");
   } catch (e) {
     return "";
   }
 }
 
 // 儲存對話記憶
-async function appendChatHistory(chatId: string, userText: string, assistantReply: string) {
+async function appendChatHistory(chatId: string, userText: string, assistantSummary: string) {
   if (!REDIS_URL) return;
   try {
     const client = createClient({ url: REDIS_URL });
@@ -53,33 +54,17 @@ async function appendChatHistory(chatId: string, userText: string, assistantRepl
     let list: Array<{ role: string; text: string }> = raw ? JSON.parse(raw) : [];
 
     list.push({ role: "user", text: userText });
-    list.push({ role: "assistant", text: assistantReply });
-    if (list.length > 8) list = list.slice(-8);
+    list.push({ role: "assistant", text: assistantSummary });
+    if (list.length > 10) list = list.slice(-10);
 
     await client.set(`chat_memory_${chatId}`, JSON.stringify(list));
     await client.quit();
   } catch (e) {}
 }
 
-// 即時被動回覆
-async function replyLine(replyToken: string, text: string) {
+// 被動即時回覆
+async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
-  await fetch("https://api.line.me/v2/bot/message/reply", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      replyToken,
-      messages: [{ type: "text", text }],
-    }),
-  }).catch(() => {});
-}
-
-// 主動推播訊息與實機截圖
-async function pushLineReport(to: string, text: string, imageUrl?: string | null) {
-  if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
   const messages: any[] = [{ type: "text", text }];
   if (imageUrl) {
@@ -90,17 +75,48 @@ async function pushLineReport(to: string, text: string, imageUrl?: string | null
     });
   }
 
+  await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({ replyToken, messages }),
+  }).catch(() => {});
+}
+
+// 主動推播截圖（分兩段發送，確保圖文必達）
+async function pushLine(to: string, text: string, imageUrl?: string | null) {
+  if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
+
   await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
     },
-    body: JSON.stringify({ to, messages }),
+    body: JSON.stringify({
+      to,
+      messages: [{ type: "text", text }],
+    }),
   }).catch(() => {});
+
+  if (imageUrl) {
+    await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        to,
+        messages: [{ type: "image", originalContentUrl: imageUrl, previewImageUrl: imageUrl }],
+      }),
+    }).catch(() => {});
+  }
 }
 
-// 雲端截圖（自適應寬螢幕與手機版）
+// 雲端截圖（9.5 秒充足渲染時間）
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -108,12 +124,10 @@ async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile")
     const width = isDesktop ? 1280 : 390;
     const height = isDesktop ? 800 : 844;
 
-    const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
-      targetUrl
-    )}&screenshot=true&viewport.isMobile=${isDesktop ? "false" : "true"}&viewport.width=${width}&viewport.height=${height}`;
+    const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent( targetUrl )}&screenshot=true&viewport.isMobile=${isDesktop ? "false" : "true"}&viewport.width=${width}&viewport.height=${height}`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 9000);
+    const timer = setTimeout(() => controller.abort(), 9500);
 
     const res = await fetch(screenshotApi, { signal: controller.signal });
     clearTimeout(timer);
@@ -126,55 +140,81 @@ async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile")
   }
 }
 
-// Gemini 1.5 Pro 高階管家大腦
-async function processButlerIntelligence(userInstruction: string, chatHistory: string) {
-  const prompt = `你現在是頂級品牌「Sport Café」的專屬智能品牌管家（具有如同資深特助、英爵管家般的專業涵養與前端美學意識）。
-管理員通常透過 LINE 群組以非常自然口語交代各項視覺與功能調整。
+// 彈性字串替換
+function applyFlexibleReplace(content: string, search: string, replace: string): { newContent: string; ok: boolean } {
+  if (!search || !replace) return { newContent: content, ok: false };
+  if (content.includes(search)) return { newContent: content.replaceAll(search, replace), ok: true };
 
-你的職責是：
-1. 深入理解管理員口語背後的真實審美意圖，不要機械式比對關鍵字。
-2. 以「極具專業溫度、禮貌的專屬特助管家」口吻生成確認回覆。
-3. 判定並輸出需要即時更新的 Live Config 參數（JSON）。
+  const normC = content.replace(/\r\n/g, "\n");
+  const normS = search.replace(/\r\n/g, "\n");
+  const normR = replace.replace(/\r\n/g, "\n");
 
-【最近對話紀錄】：
-${chatHistory || "（暫無）"}
+  if (normC.includes(normS)) {
+    return { newContent: normC.replaceAll(normS, normR), ok: true };
+  }
 
-【可控制的 Live Config 視覺參數庫】：
-- heroImage:
-  * 職人手沖滴漏特寫（工藝感、另一種精品咖啡方式）: "${CURATED_ASSETS.pourover_craft}"
-  * 原版經典美式咖啡（最初的白瓷杯俯瞰圖）: "${CURATED_ASSETS.original_americano}"
-  * 質感冰美式特寫: "${CURATED_ASSETS.iced_americano}"
-  * 高奢咖啡廳空間裝潢: "${CURATED_ASSETS.cafe_space}"
-  * 棒球選手熱血打擊: "${CURATED_ASSETS.baseball_night_stadium}"
-- bannerAnimation:
-  * 上下跳動: "animate-bounce"
-  * 呼吸閃爍: "animate-pulse"
-  * 靜態無動效: "transform-none"
-- btnStyle:
-  * 香檳金色（電腦版或全站）: "bg-[#BA9868] hover:bg-[#a68455] md:bg-[#BA9868] md:hover:bg-[#a68455]"
-  * LINE官方綠色: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]"
-  * 英爵酒紅色: "bg-[#7A1B28] hover:bg-[#63141f] md:bg-[#7A1B28] md:hover:bg-[#63141f]"
-- announcement: 新的公告文字字串（若有提及）
-- title: 新的品牌主標題（若有提及）
+  try {
+    const escaped = normS.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+    const reg = new RegExp(escaped, "g");
+    if (reg.test(normC)) return { newContent: normC.replace(reg, normR), ok: true };
+  } catch (e) {}
 
-【管理員當前指令】：
+  return { newContent: content, ok: false };
+}
+
+// GitHub 程式碼修改核心
+async function modifyFrontendCode(userInstruction: string, chatHistory: string): Promise<{ success: boolean; message: string }> {
+  if (!GITHUB_TOKEN) return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
+
+  const filePath = "src/app/page.tsx";
+  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+
+  const getRes = await fetch(getUrl, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+      "User-Agent": "SportCafe-Bot",
+    },
+    cache: "no-store",
+  });
+
+  if (!getRes.ok) return { success: false, message: `讀取 GitHub 失敗 (${getRes.status})` };
+
+  const fileData = await getRes.json();
+  const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
+  const fileSha = fileData.sha;
+
+  const prompt = `你是一位資深 Next.js 15 與 Tailwind CSS 前端架構師。
+請根據管理員口語指令，解讀審美意圖並修改首頁檔案：src/app/page.tsx。
+
+【對話脈絡】：
+${chatHistory || "無"}
+
+【重要組件與動效映射知識庫】：
+1. 「跑馬燈 / 公告欄 / 最上方欄位」：在代碼中對應的是最頂部的 <aside> 橫幅公告欄，內部結構通常為：
+   \`<span className="font-medium ...">\`
+   - 若指令要求「上下跳動」：請將該 span 的 class 加入 \`inline-block animate-bounce\`！
+   - 若指令要求「跑馬燈 / 滾動」：請將該 span 的 class 加入 \`whitespace-nowrap animate-pulse\` 或滑動動態！
+2. 「咖啡圖 / 背景圖」：
+   - 職人手沖滴漏: "${CURATED_IMAGES.pourover_craft}"
+   - 原版經典美式咖啡: "${CURATED_IMAGES.original_americano}"
+   - 質感透亮冰美式: "${CURATED_IMAGES.iced_americano}"
+
+【核心規則】：
+- 用戶說「更改跑馬燈形式」或「跑馬燈改成上下跳動」，就是在要求修改頂部公告欄的動畫效果！
+- 嚴禁回傳空的 operations！必須大膽給出精準的修改方案。
+
+【管理員指令】：
 "${userInstruction}"
 
-請輸出嚴格的 JSON 格式（不要包含 markdown 標籤以外的雜訊）：
-{
-  "butlerReply": "例如：陳執行長您好，收到！已為您將首頁背景更換為職人手沖咖啡特寫，突顯深焙精品工藝感，稍後拍下最新畫面給您驗收。",
-  "configUpdates": {
-    "heroImage": "若有變動則填入對應圖片網址，無則不填",
-    "bannerAnimation": "若有變動則填入動效class，無則不填",
-    "btnStyle": "若有變動則填入色系class，無則不填",
-    "announcement": "若有變動填入文字，無則不填",
-    "title": "若有變動填入標題，無則不填"
-  }
-}`;
+【目前代碼】：
+${currentContent}`;
+
+  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }> } = {};
 
   try {
     const aiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -182,7 +222,7 @@ ${chatHistory || "（暫無）"}
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.2,
+            temperature: 0.1,
           },
         }),
       }
@@ -190,11 +230,94 @@ ${chatHistory || "（暫無）"}
 
     const aiData = await aiRes.json();
     const rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    return JSON.parse(rawJson);
-  } catch (err) {
-    console.error("Gemini 1.5 Pro 運算失敗:", err);
-    return null;
+    parsed = JSON.parse(rawJson);
+  } catch (err) {}
+
+  // 智慧備援兜底（100% 確保跑馬燈與換圖皆可命中）
+  if (!parsed.operations || parsed.operations.length === 0) {
+    parsed.operations = [];
+    const text = userInstruction.toLowerCase();
+
+    // 跑馬燈 / 動畫效果兜底
+    if (text.includes("跑馬燈") || text.includes("跳動") || text.includes("公告") || text.includes("形式")) {
+      const isBounce = text.includes("跳動") || text.includes("跳");
+      parsed.summary = isBounce ? "將最上方公告欄改為輕快上下跳動動效" : "將最上方公告欄改為動態動效模式";
+
+      // 匹配公告文字所在的 span 標籤
+      const spanMatch = currentContent.match(/<span className="font-medium[^"]*">/);
+      if (spanMatch) {
+        const newClass = isBounce
+          ? `<span className="font-medium inline-block animate-bounce max-w-[280px] md:max-w-2xl">`
+          : `<span className="font-medium inline-block whitespace-nowrap animate-pulse max-w-[280px] md:max-w-2xl">`;
+
+        parsed.operations.push({
+          search: spanMatch[0],
+          replace: newClass,
+        });
+      }
+    }
+    // 咖啡圖兜底
+    else if (text.includes("咖啡") || text.includes("圖") || text.includes("照") || text.includes("呈現")) {
+      let targetImg = CURATED_IMAGES.pourover_craft;
+      if (text.includes("最初") || text.includes("原本") || text.includes("美式")) {
+        targetImg = CURATED_IMAGES.original_americano;
+      } else if (text.includes("冰")) {
+        targetImg = CURATED_IMAGES.iced_americano;
+      }
+
+      const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
+      if (bgMatch) {
+        parsed.summary = "更換首頁背景大圖視覺";
+        parsed.operations.push({
+          search: bgMatch[0],
+          replace: `backgroundImage: \`url('${targetImg}')\``,
+        });
+      }
+    }
   }
+
+  if (!parsed.operations || parsed.operations.length === 0) {
+    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述。" };
+  }
+
+  let updatedContent = currentContent;
+  let appliedCount = 0;
+
+  for (const op of parsed.operations) {
+    if (!op.search || !op.replace) continue;
+    const res = applyFlexibleReplace(updatedContent, op.search, op.replace);
+    if (res.ok) {
+      updatedContent = res.newContent;
+      appliedCount++;
+    }
+  }
+
+  if (appliedCount === 0) {
+    return { success: false, message: "代碼片段匹配未命中，請稍後重試。" };
+  }
+
+  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+  const putRes = await fetch(putUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github.v3+json",
+      "Content-Type": "application/json",
+      "User-Agent": "SportCafe-Bot",
+    },
+    body: JSON.stringify({
+      message: `[ChatOps] ${parsed.summary || userInstruction.slice(0, 40)}`,
+      content: Buffer.from(updatedContent, "utf-8").toString("base64"),
+      sha: fileSha,
+    }),
+  });
+
+  if (!putRes.ok) {
+    const errData = await putRes.json();
+    return { success: false, message: `GitHub 提交失敗: ${errData.message || putRes.statusText}` };
+  }
+
+  return { success: true, message: parsed.summary || "代碼已成功更新" };
 }
 
 export async function POST(req: NextRequest) {
@@ -214,21 +337,20 @@ export async function POST(req: NextRequest) {
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
-        rawText.includes("管家") ||
         rawText.includes("助手") ||
         rawText.toLowerCase().includes("cafe");
 
       if (isGroupChat && !isCallingBot) continue;
 
       let cleanText = rawText
-        .replace(/@Sport\s*Caf[eé]\s*(管理)?(助手|管家)?/gi, "")
+        .replace(/@Sport\s*Caf[eé]\s*(管理)?助手/gi, "")
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
 
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
-        if (!isGroupChat) await replyLine(replyToken, "抱歉，您尚未獲得管理員授權。");
+        if (!isGroupChat) await replyLine(replyToken, "【Sport Cafe】抱歉，您尚未獲得管理員授權。");
         continue;
       }
 
@@ -238,58 +360,47 @@ export async function POST(req: NextRequest) {
         cleanText.includes("筆電") ||
         cleanText.includes("桌面");
 
-      // 手動截圖查看
-      const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "預覽"];
-      if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換") && !cleanText.includes("跳")) {
+      // 手動截圖
+      const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
+      if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換") && !cleanText.includes("回")) {
         const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
-        await pushLineReport(
-          targetChatId,
-          `【Sport Cafe 管家】\n為您呈上最新【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】官網畫面：\nhttps://sports-cafe-hub.vercel.app`,
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已為您即時抓取最新【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】官網畫面：\nhttps://sports-cafe-hub.vercel.app`,
           screenshot
         );
         continue;
       }
 
-      // 呼叫 Gemini 1.5 Pro 管家大腦
-      const history = await getChatHistory(targetChatId);
-      const plan = await processButlerIntelligence(cleanText, history);
+      // 智能代碼修改核心
+      if (GITHUB_TOKEN && cleanText.length > 0) {
+        const historyContext = await getChatHistory(targetChatId);
+        const result = await modifyFrontendCode(cleanText, historyContext);
 
-      if (plan && plan.butlerReply) {
-        // 1. 先用管家口吻即時回覆管理員
-        await replyLine(replyToken, `【Sport Cafe 管家】\n${plan.butlerReply}`);
+        if (result.success) {
+          await appendChatHistory(targetChatId, cleanText, result.message);
 
-        // 2. 0.05 秒寫入 Redis Live Config（瞬間即時生效）
-        if (REDIS_URL && plan.configUpdates) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-
-          if (plan.configUpdates.heroImage) await client.set("site_hero_image", plan.configUpdates.heroImage);
-          if (plan.configUpdates.bannerAnimation) await client.set("site_banner_animation", plan.configUpdates.bannerAnimation);
-          if (plan.configUpdates.btnStyle) await client.set("site_btn_style", plan.configUpdates.btnStyle);
-          if (plan.configUpdates.announcement) await client.set("site_announcement", plan.configUpdates.announcement);
-          if (plan.configUpdates.title) await client.set("site_title", plan.configUpdates.title);
-
-          await client.quit();
-        }
-
-        // 儲存對話記憶
-        await appendChatHistory(targetChatId, cleanText, plan.butlerReply);
-
-        // 3. 背景自動抓取截圖並回傳（官網已即時生效，只需等待 2 秒拍照）
-        after(async () => {
-          await new Promise((resolve) => setTimeout(resolve, 2500));
-          const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
-
-          await pushLineReport(
-            targetChatId,
-            `【Sport Cafe 管家】\n最新畫面已調整完成，實機截圖如下：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
+          await replyLine(
+            replyToken,
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已推送到 GitHub，Vercel 正在自動部署中。稍後我會將最新實機畫面拍照回傳！`
           );
-        });
 
-        continue;
-      } else {
-        await replyLine(replyToken, "【Sport Cafe 管家】\n抱歉，我剛才在理解您的指令時遇到一點小插曲，請您換個說法再交代一次。");
+          after(async () => {
+            await new Promise((resolve) => setTimeout(resolve, 20000));
+            const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
+
+            await pushLine(
+              targetChatId,
+              `【Sport Cafe AI 工程師】🎉\n${isDesktopIntent ? "電腦版" : "手機版"}最新改版已成功部署上線！\n實機截圖回報如下：\nhttps://sports-cafe-hub.vercel.app`,
+              screenshot
+            );
+          });
+
+          continue;
+        } else {
+          await replyLine(replyToken, `【Sport Cafe 管理助手】代碼調整未完成：${result.message}`);
+          continue;
+        }
       }
     }
 
