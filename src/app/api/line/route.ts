@@ -97,7 +97,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
   return { newContent: content, ok: false };
 }
 
-// GitHub 程式碼修改核心
+// GitHub 程式碼修改核心（支援文字替換與樣式調整）
 async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
@@ -123,19 +123,23 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
+  // 升級版 Gemini AI 提示詞：支援文字內容修改與樣式調整
   const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的資深前端工程師。
 以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
-【色彩庫與 Class 映射】：
-- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
-- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
-- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
-
-【重要處理規則】：
-1. 用戶常說「門市預約的兩個按鈕」，指的是門市體驗基地中的「LINE 台北預約」與「LINE 仙台交流」這兩顆按鈕。
-2. 若指令提及「電腦版」，只修改帶有 "md:" 前綴的背景顏色樣式；不要更動手機版預設樣式。
-3. "search" 可以非常精簡！例如直接尋找需要替換的 class 字串（如 "md:bg-[#06C755] md:hover:bg-[#05b34c]"），或包含 <a> 標籤的代碼。
-4. 嚴禁回傳空的 operations！必須大膽推斷並輸出最合理的修改方案。
+【修改規則】：
+1. 根據管理員指令，精準找出 page.tsx 中需要被替換的文字內容、標題或 Tailwind CSS 樣式。
+2. 回傳嚴格的 JSON 格式（不要包在 markdown 程式碼區塊內，直接輸出 JSON）：
+{
+  "summary": "修改摘要說明",
+  "operations": [
+    {
+      "search": "要被替換的原始程式碼片段（例如舊標題文字或舊 class）",
+      "replace": "替換後的新程式碼片段（例如新標題文字或新 class）"
+    }
+  ]
+}
+3. 務必確保 search 的片段在 page.tsx 原始碼中確實存在。
 
 【管理員指令】：
 "${userInstruction}"
@@ -162,33 +166,15 @@ ${currentContent}`;
     );
 
     const aiData = await aiRes.json();
-    const rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    rawJson = rawJson.replace(/^```[a-zA-Z]*\n/m, "").replace(/\n```$/m, "").trim();
     parsed = JSON.parse(rawJson);
   } catch (err) {
     console.error("AI parse error:", err);
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    parsed.operations = [];
-    const text = userInstruction.toLowerCase();
-
-    if (text.includes("電腦") && (text.includes("金") || text.includes("香檳"))) {
-      parsed.summary = "將電腦版門市預約按鈕調整為香檳金色";
-      parsed.operations.push({
-        search: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
-        replace: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
-      });
-    } else if (text.includes("電腦") && (text.includes("綠") || text.includes("line"))) {
-      parsed.summary = "將電腦版門市預約按鈕調整為 LINE 官方綠色";
-      parsed.operations.push({
-        search: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
-        replace: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
-      });
-    }
-  }
-
-  if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述（例如：把電腦版據點預約按鈕換成金色）。" };
+    return { success: false, message: "AI 未能明確定位要修改的代碼，請嘗試更具體描述。" };
   }
 
   let updatedContent = currentContent;
@@ -267,9 +253,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 4. 截圖指令
+      // 1. 截圖指令
       const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
-      if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換")) {
+      if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改")) {
         const screenshot = await captureWebsiteScreenshot();
         await replyLine(
           replyToken,
@@ -279,66 +265,8 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 標題與公告修改（Redis 高速通道）—— 必須放在最前面優先攔截！
-      if (cleanText.includes("標題改為") || cleanText.includes("標題換成") || cleanText.startsWith("標題")) {
-        let newTitle = cleanText.replace(/.*?標題(改為|換成|：|:)?/, "").trim();
-        if (!newTitle) newTitle = cleanText;
-        if (newTitle && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_title", newTitle);
-          await client.quit();
-
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新網站主標題：\n「${newTitle}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      if (cleanText.includes("公告改為") || cleanText.includes("公告換成")) {
-        let directNotice = cleanText.replace(/.*?公告(改為|換成)[：:\s]*/, "").trim();
-        if (directNotice && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_announcement", directNotice);
-          await client.quit();
-
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      // 6. 網址綁定公告（Redis 高速通道）
-      const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
-      if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
-        const targetUrl = urlMatch[0];
-        if (REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_announcement_url", targetUrl);
-          await client.quit();
-
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功將公告連結綁定為：\n${targetUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      // 7. 智能代碼修改核心（樣式、顏色、排版、按鈕調整）
-      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "調整", "增加", "刪除", "電腦版", "手機版"];
+      // 2. 智慧代碼與文字修改核心（包含所有改、換、修改、標題等指令）
+      const codeKeywords = ["改", "換", "修改", "標題", "顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "調整", "增加", "刪除", "電腦版", "手機版"];
       const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
 
       if (isCodeModification && GITHUB_TOKEN) {
@@ -347,16 +275,16 @@ export async function POST(req: NextRequest) {
         if (result.success) {
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub，Vercel 正在部署中（約 20 秒）。稍後您可以 @ 我說「截圖」，我會立刻拍下最新畫面給您驗收！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整網站：${result.message}！\n\n⚡ 已自動推送到 GitHub，Vercel 正在部署中（約 20 秒）。完成後請 @ 我說「截圖」驗收！`
           );
           continue;
         } else {
-          await replyLine(replyToken, `【Sport Cafe 管理助手】代碼調整未完成：${result.message}`);
+          await replyLine(replyToken, `【Sport Cafe 管理助手】調整未完成：${result.message}`);
           continue;
         }
       }
 
-      // 8. 稱讚與互動
+      // 3. 稱讚與互動
       const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
       if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("http")) {
         await replyLine(
@@ -366,11 +294,11 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 9. 一般私聊引導
+      // 4. 一般私聊引導
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版的按鈕顏色調整為...\n• 標題改為：最新戰況\n• 截圖（查看目前畫面）"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 把網頁主標題改成：恭喜民安少棒奪勝！！\n• 電腦版的按鈕顏色調整為...\n• 截圖（查看目前畫面）"
         );
       }
     }
