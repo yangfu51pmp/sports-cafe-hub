@@ -8,7 +8,7 @@ const defaultConfig = {
   announcementUrl: "https://youtube.com",
   bannerAnimation: "animate-pulse",
   heroImage: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop",
-  btnStyle: "bg-[#7A1B28] hover:bg-[#63141f] text-white",
+  btnStyle: "bg-gradient-to-r from-[#C8A878] via-[#BA9868] to-[#B08D5B] text-white shadow-md",
 };
 
 export default function HomePage() {
@@ -88,6 +88,17 @@ export default function HomePage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m0 0A7.5 7.5 0 105.2 5.2a7.5 7.5 0 0010.6 10.6z" />
             </svg>
           </button>
+          
+          {/* 這裡套用管家可控的 btnStyle 金色漸層 */}
+          <a
+            href="https://line.me"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`hidden sm:inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-bold tracking-wider transition ${config.btnStyle}`}
+          >
+            <span>LINE 預約</span>
+          </a>
+
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="選單"
@@ -191,10 +202,9 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* 5. 英爵同款頂級 Footer（完美復刻據點、諮詢專線與快速連結） */}
+      {/* 5. 頂級 Footer */}
       <footer id="stores" className="bg-[#EFEAE4] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-          {/* 品牌與免責聲明 */}
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-sm">
@@ -207,14 +217,8 @@ export default function HomePage() {
             <p className="text-[11px] text-stone-500 leading-relaxed mb-6">
               ※任何訓練均有其風險，本網站圖文僅供參考，實際狀況須由專業教練進行評估指導而定。
             </p>
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">ig</span>
-              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">fb</span>
-              <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-[#7A1B28] text-xs font-bold shadow-sm">yt</span>
-            </div>
           </div>
 
-          {/* 診所/據點資訊 */}
           <div>
             <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">診所據點</div>
             <div className="space-y-4 text-xs text-stone-600">
@@ -223,85 +227,46 @@ export default function HomePage() {
                 <div>📍 台北市南京東路三段331號2樓</div>
                 <div className="text-[#7A1B28]">📞 02-77074669</div>
               </div>
-              <div>
-                <div className="font-bold text-stone-800 mb-0.5">台北信義館</div>
-                <div>📍 台北市信義路四段206號</div>
-                <div className="text-[#7A1B28]">📞 02-77074669</div>
-              </div>
             </div>
           </div>
 
-          {/* 聯絡我們 */}
           <div id="contact">
             <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">聯絡我們</div>
             <div className="text-xs text-stone-500 mb-1">諮詢專線</div>
             <div className="text-xl font-serif font-bold text-[#7A1B28] mb-4">02-77074669</div>
-            <div className="text-xs text-stone-500 mb-2">客服預約諮詢</div>
-            <div className="flex flex-col gap-2">
-              <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-[#1B8A3E] text-white text-xs font-bold text-center shadow-sm">
-                LINE 台北館
-              </a>
-              <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-[#1B8A3E] text-white text-xs font-bold text-center shadow-sm">
-                LINE 竹北館
-              </a>
-            </div>
           </div>
 
-          {/* 快速連結 */}
           <div>
             <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">快速連結</div>
             <ul className="space-y-2 text-xs text-stone-600">
-              <li><a href="#services" className="hover:text-[#7A1B28] transition">服務項目[cite: 27]</a></li>
-              <li><a href="#experts" className="hover:text-[#7A1B28] transition">醫師團隊[cite: 27]</a></li>
-              <li><a href="#experts" className="hover:text-[#7A1B28] transition">醫師專欄[cite: 27]</a></li>
-              <li><a href="#sharing" className="hover:text-[#7A1B28] transition">美麗見證[cite: 27]</a></li>
-              <li><a href="#stores" className="hover:text-[#7A1B28] transition">門診時間[cite: 27]</a></li>
-              <li><a href="#contact" className="hover:text-[#7A1B28] transition">常見問題[cite: 27]</a></li>
-              <li><a href="#contact" className="hover:text-[#7A1B28] transition">線上客服[cite: 27]</a></li>
-              <li><a href="#privacy" className="hover:text-[#7A1B28] transition">隱私權政策[cite: 27]</a></li>
+              <li><a href="#services" className="hover:text-[#7A1B28] transition">服務項目</a></li>
+              <li><a href="#stores" className="hover:text-[#7A1B28] transition">門診時間</a></li>
             </ul>
           </div>
         </div>
 
         <div className="max-w-7xl mx-auto border-t border-stone-300/60 pt-6 text-center text-xs text-stone-500">
-          <p>Copyright © 2026 英爵醫美 WBeauty[cite: 27]</p>
+          <p>Copyright © 2026 SPORT CAFÉ GROUP. All rights reserved.</p>
         </div>
       </footer>
 
-      {/* 6. 手機底部固定導覽列（含右下角 ＋ 彈出選單） */}
+      {/* 6. 手機底部固定導覽列 */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
-        <a
-          href="https://line.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1 bg-[#1B8A3E] text-white text-xs font-bold tracking-wider hover:opacity-90 transition border-r border-white/20"
-        >
+        <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 bg-[#1B8A3E] text-white text-xs font-bold tracking-wider border-r border-white/20">
           <span>💬 LINE 台北</span>
         </a>
-        <a
-          href="https://line.me"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-1 bg-[#1B8A3E] text-white text-xs font-bold tracking-wider hover:opacity-90 transition border-r border-stone-300"
-        >
+        <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-1 bg-[#1B8A3E] text-white text-xs font-bold tracking-wider border-r border-stone-300">
           <span>💬 LINE 仙台</span>
         </a>
-        <a
-          href="tel:0227000000"
-          className="flex-1 flex items-center justify-center gap-1 bg-white text-[#7A1B28] text-xs font-bold tracking-wider hover:bg-stone-50 transition border-r border-stone-200"
-        >
+        <a href="tel:0227000000" className="flex-1 flex items-center justify-center gap-1 bg-white text-[#7A1B28] text-xs font-bold tracking-wider border-r border-stone-200">
           <span>📞 來電諮詢</span>
         </a>
-        <button
-          onClick={() => setContactOpen(!contactOpen)}
-          aria-label="展開更多聯繫方式"
-          className="w-14 flex items-center justify-center bg-white text-[#7A1B28] text-xl font-bold hover:bg-stone-50 transition"
-        >
+        <button onClick={() => setContactOpen(!contactOpen)} aria-label="展開" className="w-14 flex items-center justify-center bg-white text-[#7A1B28] text-xl font-bold">
           {contactOpen ? "✕" : "＋"}
         </button>
       </nav>
 
-      {/* 7. 右下角「＋」彈出選單 */}
+      {/* 7. 右下角彈出選單 */}
       {contactOpen && (
         <div className="fixed bottom-[60px] right-3 z-50 bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
           <div className="text-xs font-bold text-[#7A1B28] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
@@ -309,25 +274,13 @@ export default function HomePage() {
             <span className="cursor-pointer text-stone-400" onClick={() => setContactOpen(false)}>✕</span>
           </div>
           <div className="flex flex-col gap-2.5 text-xs">
-            <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition text-stone-700 font-medium">
+            <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 text-stone-700 font-medium">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <span>LINE 台北館</span>
             </a>
-            <a href="https://line.me" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition text-stone-700 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <span>LINE 仙台館</span>
-            </a>
-            <a href="tel:0227000000" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition text-stone-700 font-medium">
-              <span className="w-2 h-2 rounded-full bg-[#7A1B28]" />
+            <a href="tel:0227000000" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 text-stone-700 font-medium">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#7A1B28]" />
               <span>諮詢專線 02-77074669</span>
-            </a>
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition text-stone-700 font-medium">
-              <span className="w-2 h-2 rounded-full bg-blue-600" />
-              <span>FB 粉絲客服</span>
-            </a>
-            <a href="#stores" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 transition text-stone-700 font-medium">
-              <span className="w-2 h-2 rounded-full bg-amber-600" />
-              <span>診所據點與地圖</span>
             </a>
           </div>
         </div>
