@@ -170,7 +170,7 @@ async function LuxuryResponsiveView() {
         </div>
       </section>
 
-      {/* 3. 服務分類卡片（補齊第 4 項缺失之 svg 標籤） */}
+      {/* 3. 服務分類卡片 */}
       <section id="services" className="relative z-20 max-w-6xl mx-auto -mt-6 md:-mt-12 px-4 md:px-8">
         <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-stone-200/60">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-y-6 md:gap-4 text-center">
@@ -195,7 +195,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">裝備借測</span>
             </div>
 
-            {/* 分類 3 */}
+            {/* 分字 3 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -205,7 +205,7 @@ async function LuxuryResponsiveView() {
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">機能飲品</span>
             </div>
 
-            {/* 分類 4（修復：補回缺失的開頭 svg） */}
+            {/* 分類 4 */}
             <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
@@ -329,7 +329,7 @@ async function LuxuryResponsiveView() {
         </div>
       </footer>
 
-      {/* 6. 手機端專屬：同款四項目（LINE台北 / LINE仙台 / 來電諮詢 / ＋）全金屬光澤導覽列 */}
+      {/* 6. 手機端專屬：同款四項目（LINE台北 / LINE仙台 / 來電諮詢 / ＋）全金屬香檳金導覽列 */}
       <aside className="md:hidden fixed bottom-0 left-0 right-0 z-50">
         {/* (A) 懸浮互動對話氣泡 */}
         <div className="max-w-md mx-auto px-4 flex justify-end mb-2 pointer-events-auto">
@@ -433,12 +433,14 @@ async function LuxuryResponsiveView() {
 
 export default function Home() {
   return (
-    <Suspense <div className="min-h-screen bg-[#F8F7F4] flex items-center justify-center text-xs text-stone-400 font-light" fallback="{">
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#F8F7F4] flex items-center justify-center text-xs text-stone-400 font-light">
           Sport Café 載入中...
         </div>
       }
     >
-      <LuxuryResponsiveView/>
+      <LuxuryResponsiveView />
     </Suspense>
   );
 }
