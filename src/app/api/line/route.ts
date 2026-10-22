@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "redis";
 
+// 設定雲端函式最長執行時間為 60 秒
 export const maxDuration = 60;
 
 const REDIS_URL =
@@ -17,23 +18,78 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
-// 精品高解析圖庫（精準分類：美式咖啡杯特寫 vs 咖啡廳空間）
+// 全光譜精選 4K 圖庫字典（精準切分咖啡特寫、不同呈現方式與空間氛圍）
 const CURATED_IMAGES = {
-  // 1. 最初原版經典美式咖啡（白瓷杯、細緻 Crema 俯瞰特寫）
+  // 1. 最初原版經典美式（白瓷杯俯瞰、細緻 Crema 黑咖啡特寫）
   original_americano: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",
-  
-  // 2. 質感透亮冰美式咖啡（玻璃杯冰塊特寫，另一種美式呈現方式）
+
+  // 2. 質感冰美式咖啡（玻璃杯冰塊清涼特寫，美式咖啡的另一種經典呈現）
   iced_americano: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=1600&auto=format&fit=crop",
-  
-  // 3. 職人手沖黑咖啡滴落特寫
+
+  // 3. 職人手沖黑咖啡滴落特寫（原木桌面滴漏細節）
   pourover_coffee: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=1600&auto=format&fit=crop",
 
-  // 4. 棒球打擊 / 夜間球場
+  // 4. 精品拿鐵拉花特寫（咖啡杯拉花工藝）
+  latte_art: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop",
+
+  // 5. 咖啡豆與深焙萃取（純黑咖啡元素特寫）
+  coffee_extraction: "https://images.unsplash.com/photo-1447933601403-0c6688de566e?q=80&w=1600&auto=format&fit=crop",
+
+  // 6. 日式極簡精品咖啡吧台（空間裝潢）
+  japanese_cafe_bar: "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?q=80&w=1600&auto=format&fit=crop",
+
+  // 7. 高奢精品咖啡廳室內（空間裝潢）
+  luxury_cafe_space: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop",
+
+  // 8. 棒球選手打擊 / 夜間球場
   baseball_action: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop",
 
-  // 5. 咖啡廳空間裝潢（空間照）
-  cafe_space: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop",
+  // 9. 棒球手套與紅線球特寫
+  baseball_gear: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=1600&auto=format&fit=crop",
 };
+
+// 讀取 Redis 對話記憶（最近 10 則）
+async function getChatHistory(chatId: string): Promise<string> {
+  if (!REDIS_URL) return "";
+  try {
+    const client = createClient({ url: REDIS_URL });
+    await client.connect();
+    const raw = await client.get(`chat_memory_${chatId}`);
+    await client.quit();
+    if (!raw) return "";
+
+    const list: Array<{ role: string; text: string }> = JSON.parse(raw);
+    return list
+      .map((item) => `${item.role === "user" ? "管理員" : "助手"}: ${item.text}`)
+      .join("\n");
+  } catch (e) {
+    console.error("讀取對話記憶失敗:", e);
+    return "";
+  }
+}
+
+// 儲存對話記憶到 Redis
+async function appendChatHistory(chatId: string, userText: string, assistantSummary: string) {
+  if (!REDIS_URL) return;
+  try {
+    const client = createClient({ url: REDIS_URL });
+    await client.connect();
+    const raw = await client.get(`chat_memory_${chatId}`);
+    let list: Array<{ role: string; text: string }> = raw ? JSON.parse(raw) : [];
+
+    list.push({ role: "user", text: userText });
+    list.push({ role: "assistant", text: assistantSummary });
+
+    if (list.length > 10) {
+      list = list.slice(-10);
+    }
+
+    await client.set(`chat_memory_${chatId}`, JSON.stringify(list));
+    await client.quit();
+  } catch (e) {
+    console.error("儲存對話記憶失敗:", e);
+  }
+}
 
 // 1. 即時被動回覆函式
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
@@ -97,7 +153,7 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 3. 雲端截圖（電腦 1280x800 / 手機 390x844）
+// 3. 雲端無人瀏覽器即時截圖
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -155,8 +211,8 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
   return { newContent: content, ok: false };
 }
 
-// 5. GitHub 程式碼修改核心
-async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
+// 5. GitHub 程式碼修改核心（結合上下文記憶）
+async function modifyFrontendCode(userInstruction: string, chatHistory: string): Promise<{ success: boolean; message: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
   }
@@ -183,22 +239,35 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
 
   const customUrlMatch = userInstruction.match(/https?:\/\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp|avif)[^\s"'<>]*|https:\/\/images\.unsplash\.com\/[^\s"'<>]+/i);
 
-  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端架構師。
-以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
+  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端架構師，也是 Sport Café 品牌的專屬智能管家。
+你的工作是根據管理員的口語需求，精確解讀其意圖並調整首頁檔案：src/app/page.tsx。
 
-【精選圖庫映射】：
-1. 最初原版經典美式咖啡（白瓷杯俯瞰、綿密黑咖啡特寫）: "${CURATED_IMAGES.original_americano}"
-2. 質感冰美式咖啡（透明玻璃杯冰塊、另一種美式呈現方式）: "${CURATED_IMAGES.iced_americano}"
-3. 職人手沖黑咖啡滴落特寫: "${CURATED_IMAGES.pourover_coffee}"
-4. 咖啡廳空間裝潢（整間店面）: "${CURATED_IMAGES.cafe_space}"
-5. 棒球運動視覺: "${CURATED_IMAGES.baseball_action}"
-${customUrlMatch ? `- 用戶指定自選圖片: "${customUrlMatch[0]}"` : ""}
+【最近對話脈絡（用於解讀代名詞如「最初的圖」、「另一種呈現」、「上一次改的」）】：
+${chatHistory || "（目前暫無近期對話紀錄）"}
 
-【重要處理規則】：
-1. 用戶提及「最初的圖」、「原本的圖」、「美式咖啡」、「一杯咖啡」或「換個咖啡方式呈現」，是指「咖啡杯特寫照」，請優先使用【最初原版經典美式咖啡】或【質感冰美式咖啡】，千萬不要換成空間裝潢圖！
-2. 替換首頁背景圖：請定位首頁 Hero 區塊的 backgroundImage 並替換為對應圖片網址。
+【精選圖庫映射（嚴格區分「咖啡杯特寫」與「空間裝潢」）】：
+- 最初原版經典美式咖啡（白瓷杯俯瞰特寫、細緻 Crema 黑咖啡）: "${CURATED_IMAGES.original_americano}"
+- 質感冰美式咖啡（透明玻璃杯冰塊特寫，美式咖啡另一種經典形式）: "${CURATED_IMAGES.iced_americano}"
+- 職人手沖黑咖啡滴落特寫: "${CURATED_IMAGES.pourover_coffee}"
+- 精緻拿鐵拉花咖啡特寫: "${CURATED_IMAGES.latte_art}"
+- 咖啡豆與萃取特寫: "${CURATED_IMAGES.coffee_extraction}"
+- 日式極簡咖啡吧台空間照: "${CURATED_IMAGES.japanese_cafe_bar}"
+- 高奢咖啡廳室內空間照: "${CURATED_IMAGES.luxury_cafe_space}"
+- 棒球打擊 / 夜間球場: "${CURATED_IMAGES.baseball_action}"
+- 棒球手套與紅線球特寫: "${CURATED_IMAGES.baseball_gear}"
+${customUrlMatch ? `- 用戶指定的自選圖片: "${customUrlMatch[0]}"` : ""}
 
-【管理員指令】：
+【色彩庫映射】：
+- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
+- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
+- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
+
+【核心意圖解析規則】：
+1. 若管理員說「回到最初的圖」、「原本的圖」、「一杯美式咖啡」，請 100% 替換為【最初原版經典美式咖啡】。
+2. 若管理員說「換個咖啡方式呈現」或「類似的圖換個呈現」，請選用【質感冰美式咖啡】或【職人手沖黑咖啡滴落特寫】等「杯裝咖啡特寫」，千萬不要選空間裝潢照！
+3. 替換首頁背景圖：定位首頁 Hero 區塊的 backgroundImage 並替換為對應圖片網址。
+
+【管理員當前指令】：
 "${userInstruction}"
 
 【目前首頁程式碼】：
@@ -234,27 +303,17 @@ ${currentContent}`;
     const text = userInstruction.toLowerCase();
     parsed.operations = [];
 
-    if (text.includes("最初") || text.includes("原本") || text.includes("美式") || text.includes("一杯") || text.includes("咖啡方式") || text.includes("咖啡杯")) {
-      // 判斷是否指定冰美式，否則一律回到經典最初的美式咖啡原圖
-      const targetImg = text.includes("冰") || text.includes("另一")
+    if (text.includes("最初") || text.includes("原本") || text.includes("美式") || text.includes("一杯") || text.includes("咖啡方式")) {
+      const targetImg = text.includes("冰") || text.includes("另一") || text.includes("類似")
         ? CURATED_IMAGES.iced_americano
         : CURATED_IMAGES.original_americano;
 
       const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
       if (bgMatch) {
-        parsed.summary = "換回最初的美式咖啡經典特寫視覺";
+        parsed.summary = "換回經典美式咖啡杯裝特寫視覺";
         parsed.operations.push({
           search: bgMatch[0],
           replace: `backgroundImage: \`url('${targetImg}')\``,
-        });
-      }
-    } else if (text.includes("空間") || text.includes("裝潢") || text.includes("店面")) {
-      const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
-      if (bgMatch) {
-        parsed.summary = "更換為咖啡廳空間裝潢視覺";
-        parsed.operations.push({
-          search: bgMatch[0],
-          replace: `backgroundImage: \`url('${CURATED_IMAGES.cafe_space}')\``,
         });
       }
     }
@@ -431,14 +490,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. 智能代碼修改核心
+      // 8. 智能代碼修改核心（讀取歷史記憶 + 自動回寫記憶）
       if (GITHUB_TOKEN && cleanText.length > 0) {
-        const result = await modifyFrontendCode(cleanText);
+        // 讀取該群組最近對話紀錄
+        const historyContext = await getChatHistory(targetChatId);
+
+        const result = await modifyFrontendCode(cleanText, historyContext);
 
         if (result.success) {
+          // 儲存本次指令到記憶體
+          await appendChatHistory(targetChatId, cleanText, result.message);
+
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub，Vercel 正在部署中。約 25 秒完成後，我會自動拍照回傳【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】實機畫面！`
+            `【Sport Cafe AI 工程師】🛠️\n已為您調整前端代碼：${result.message}！\n\n⚡ 已推送到 GitHub，Vercel 正在部署中。約 25 秒完成後，我會自動拍照回傳【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】實機畫面！`
           );
 
           after(async () => {
@@ -464,7 +529,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 換回最初的美式咖啡圖\n• 首頁圖換成冰美式咖啡\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 換回最初的美式咖啡圖\n• 首頁圖換成冰美式特寫\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
         );
       }
     }
