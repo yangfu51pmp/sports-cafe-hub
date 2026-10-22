@@ -6,7 +6,14 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
-  // 高質感純金樣式（無漸層）
+  // 直接鎖定您在 LINE 指定的 4 大最新服務項目
+  const services = [
+    { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
+    { title: "專業嚴選裝備", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
+    { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
+    { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
+  ];
+
   const pureGoldStyle = "bg-[#C8A878] hover:bg-[#B89868] text-white shadow-md";
 
   return (
@@ -98,7 +105,7 @@ export default function HomePage() {
           <div className="max-w-md mx-auto divide-y divide-stone-100 text-stone-800 text-base font-medium">
             {[
               { title: "關於本所", items: ["品牌初心", "創辦理念", "環境導覽"] },
-              { title: "服務項目", items: ["精品手沖咖啡", "專業裝備借測", "機能能量飲品", "仙台少棒交流"] },
+              { title: "服務項目", items: ["精品手沖咖啡", "專業嚴選裝備", "專業訓練課程", "台日國際交流"] },
               { title: "職人專欄", items: ["教練專訪", "裝備評測心得"] },
               { title: "美麗見證", items: ["學員實績分享", "活動花絮"] },
               { title: "參考價目表", items: ["咖啡飲品價目", "裝備借測方案"] },
@@ -137,8 +144,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 服務項目精選 */}
-        <section className="max-w-7xl mx-auto px-8 pt-16 pb-12">
+        {/* 服務項目清單（已完美更新為 4 個項目） */}
+        <section id="services" className="max-w-7xl mx-auto px-8 pt-16 pb-12">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-wide text-[#7A1B28] mb-2">
               Services & Experience.
@@ -148,12 +155,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
-              { title: "專業裝備借測", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
-              { title: "機能能量飲品", desc: "為運動員與品味人士特調的機能補給。", tag: "ENERGY", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
-            ].map((item, idx) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {services.map((item, idx) => (
               <div key={idx} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
                 <div className="h-48 overflow-hidden relative">
                   <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold text-[#7A1B28] tracking-widest">
@@ -222,7 +225,7 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* 6. 手機底部固定導覽列（純金無漸層風格） */}
+      {/* 6. 手機底部固定導覽列（純金風格） */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
