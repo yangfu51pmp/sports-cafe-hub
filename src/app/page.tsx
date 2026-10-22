@@ -5,6 +5,7 @@ import CoffeeMenu from "@/components/cafe/CoffeeMenu";
 
 interface SiteConfig {
   announcement: string;
+  announcement_url?: string;
   title: string;
   curation_left_title: string;
   curation_right_title: string;
@@ -13,6 +14,7 @@ interface SiteConfig {
 
 const defaultConfig: SiteConfig = {
   announcement: "歡迎光臨 Sport Café！手沖精品與專業運動裝備借測空間。",
+  announcement_url: "",
   title: "空間、咖啡與你的訓練日常",
   curation_left_title: "智能無人手沖吧台",
   curation_right_title: "原廠運動裝備借測",
@@ -48,6 +50,7 @@ async function LuxurySite() {
       await client.connect();
       const raw = await client.get("site_config_v2");
       const simpleNotice = await client.get("site_announcement");
+      const simpleUrl = await client.get("site_announcement_url");
       const simpleTitle = await client.get("site_title");
       await client.quit();
 
@@ -55,6 +58,7 @@ async function LuxurySite() {
         config = JSON.parse(raw);
       } else {
         if (simpleNotice) config.announcement = simpleNotice;
+        if (simpleUrl) config.announcement_url = simpleUrl;
         if (simpleTitle) config.title = simpleTitle;
       }
     } catch (e) {
@@ -66,13 +70,39 @@ async function LuxurySite() {
 }
 
 function LuxuryView({ config }: { config: SiteConfig }) {
+  const AnnouncementBanner = () => {
+    const content = (
+      <div className="bg-[#7A1B28] text-white px-4 py-2.5 text-center text-xs tracking-wider font-light flex items-center justify-center gap-2 group hover:bg-[#681420] transition">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
+        <span className="font-medium">門市公告：{config.announcement}</span>
+        {config.announcement_url && (
+          <span className="text-amber-200 underline underline-offset-2 ml-1 text-[11px] group-hover:text-white transition">
+            點擊進入直播 ↗
+          </span>
+        )}
+      </div>
+    );
+
+    if (config.announcement_url) {
+      return (
+        <a
+          href={config.announcement_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block"
+        >
+          {content}
+        </a>
+      );
+    }
+
+    return content;
+  };
+
   return (
     <main className="min-h-screen bg-[#FAF9F6] text-stone-800 antialiased selection:bg-[#7A1B28] selection:text-white">
-      {/* 1. 頂部英爵酒紅公告橫幅 */}
-      <div className="bg-[#7A1B28] text-white px-4 py-2 text-center text-xs tracking-widest font-light flex items-center justify-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
-        <span>門市公告：{config.announcement}</span>
-      </div>
+      {/* 1. 頂部英爵酒紅公告橫幅（支援跳轉） */}
+      <AnnouncementBanner />
 
       {/* 2. 簡約高質感導覽列 */}
       <header className="sticky top-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-stone-200/80">
