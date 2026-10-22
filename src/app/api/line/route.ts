@@ -12,6 +12,7 @@ export async function POST(req: Request) {
       if (event.type === "message" && event.message.type === "text") {
         const userText = event.message.text;
         const replyToken = event.replyToken;
+        const source = event.source;
 
         // 1. 初始化 Redis
         const client = createClient({ url: REDIS_URL });
@@ -19,9 +20,8 @@ export async function POST(req: Request) {
 
         let aiResponse = "收到！已為您調整網站設定。";
 
-        // 2. 智慧解析服務項目修改指令
-        if (userText.includes("專業裝備借測") || userText.includes("機能能量飲品") || userText.includes("新增")) {
-          // 定義更新後的服務項目清單
+        // 2. 智慧解析服務項目修改或按鈕樣式指令
+        if (userText.includes("專業裝備借測") || userText.includes("機能能量飲品") || userText.includes("新增") || userText.includes("改")) {
           const updatedServices = [
             { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
             { title: "專業嚴選裝備", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
           ];
 
           await client.set("site_services", JSON.stringify(updatedServices));
-          aiResponse = "【Sport Cafe 管家】收到！已將服務項目更新為：\n1. 精品手沖咖啡\n2. 專業嚴選裝備\n3. 專業訓練課程\n4. 台日國際交流";
+          aiResponse = "【Sport Cafe 管家】收到！已將服務項目更新完成。";
         } else if (userText.includes("金色") || userText.includes("純金")) {
           await client.set("site_btn_style", "bg-[#C8A878] text-white shadow-md");
           aiResponse = "【Sport Cafe 管家】收到！已將按鈕與標籤調整為高質感純金色。";
@@ -38,24 +38,50 @@ export async function POST(req: Request) {
 
         await client.quit();
 
-        // 3. 透過 LINE Messaging API 回覆訊息
+        // 3. 產生網站截圖 URL (使用免費開箱即用的雲端截圖服務)
+        const targetUrl = "https://sports-cafe-hub.vercel.app";
+        const screenshotUrl = `https://image.thum.io/get/width/600/crop/800/${targetUrl}`;
+
+        // 4. 透過 LINE Messaging API 回傳文字與即時截圖
         if (process.env.LINE_CHANNEL_ACCESS_TOKEN && replyToken) {
-          await fetch("https://api.line.me/v2/bot/message/reply", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+          const messages: any[] = [
+            {
+              type: "text",
+              text: `${aiResponse}\n\n以下為修改完成的最新實機畫面：`,
             },
-            body: JSON.stringify({
-              replyToken: replyToken,
-              messages: [
-                {
-                  type: "text",
-                  text: `${aiResponse}\n\n最新設定已即時生效！`,
-                },
-              ],
-            }),
-          });
+            {
+              type: "image",
+              originalContentUrl: screenshotUrl,
+              previewImageUrl: screenshotUrl,
+            },
+          ];
+
+          // 若為群組訊息，也可以直接 Push 訊息
+          if (source && source.groupId) {
+            await fetch("https://api.line.me/v2/bot/message/push", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+              },
+              body: JSON.stringify({
+                to: source.groupId,
+                messages: messages,
+              }),
+            });
+          } else {
+            await fetch("https://api.line.me/v2/bot/message/reply", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
+              },
+              body: JSON.stringify({
+                replyToken: replyToken,
+                messages: messages,
+              }),
+            });
+          }
         }
       }
     }
