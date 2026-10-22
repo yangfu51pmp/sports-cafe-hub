@@ -1,5 +1,7 @@
-import { headers } from "next/headers";
 import { createClient } from "redis";
+
+// Next.js 15 官方解法：允許動態阻塞式渲染，免除預渲染衝突
+export const instant = false;
 
 const REDIS_URL =
   process.env.REDIS_URL ||
@@ -19,7 +21,10 @@ const defaultConfig = {
 
 // 讀取 Redis 即時動態配置
 async function getSiteConfig() {
-  if (!REDIS_URL) return defaultConfig;
+  // 雙保險：在 npm run build 打包階段直接回傳預設值，避開隨機數與網路連線報錯
+  if (process.env.NEXT_PHASE === "phase-production-build" || !REDIS_URL) {
+    return defaultConfig;
+  }
 
   try {
     const client = createClient({ url: REDIS_URL });
@@ -49,8 +54,6 @@ async function getSiteConfig() {
 }
 
 export default async function HomePage() {
-  // 透過 headers() 明確宣告動態請求，打包期（npm run build）不預渲染，徹底根絕 Redis 隨機數報錯
-  await headers();
   const config = await getSiteConfig();
 
   return (
