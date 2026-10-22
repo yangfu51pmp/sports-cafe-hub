@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-export const instant = false;
-
 // 預設品牌配置
 const defaultConfig = {
   title: "SPORT CAFÉ",
@@ -19,7 +17,7 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
-  // 用戶端即時向 Redis API 抓取最新 Live Config
+  // 用戶端即時向 Redis 抓取最新 Live Config
   useEffect(() => {
     fetch("/api/config")
       .then((res) => res.json())
@@ -117,7 +115,7 @@ export default function HomePage() {
 
       {/* 3. 點擊三條線展開的全螢幕分類選單（英爵同款） */}
       {menuOpen && (
-        <div className="fixed inset-0 top-[110px] bg-white z-40 overflow-y-auto px-6 py-8 animate-fadeIn shadow-2xl">
+        <div className="fixed inset-0 top-[110px] bg-white z-40 overflow-y-auto px-6 py-8 shadow-2xl">
           <div className="max-w-md mx-auto bg-[#7A1B28] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
             WBEAUTY · SPORT CAFÉ 專屬選單
           </div>
@@ -200,8 +198,8 @@ export default function HomePage() {
         </section>
       </main>
 
-      {/* 5. 英爵同款手機底部固定聯絡列（LINE 台北 | LINE 竹北 | 來電諮詢 | ＋） */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg">
+      {/* 5. 英爵同款手機底部固定聯絡列 */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
           target="_blank"
@@ -233,9 +231,9 @@ export default function HomePage() {
         </button>
       </nav>
 
-      {/* 6. 點擊右下角「＋」彈出的聯絡方式選單（英爵同款，向上彈出） */}
+      {/* 6. 點擊右下角「＋」彈出的聯絡方式選單 */}
       {contactOpen && (
-        <div className="fixed bottom-[60px] right-3 z-50 bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px] animate-fadeIn">
+        <div className="fixed bottom-[60px] right-3 z-50 bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
           <div className="text-xs font-bold text-[#7A1B28] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
             <span>快速聯絡與據點</span>
             <span className="cursor-pointer text-stone-400" onClick={() => setContactOpen(false)}>✕</span>
