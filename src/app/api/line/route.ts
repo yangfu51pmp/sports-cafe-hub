@@ -93,8 +93,8 @@ async function modifyFrontendCode(userInstruction: string): Promise<string> {
   const fileSha = fileData.sha;
 
   // 2. 呼叫 Gemini AI 修改 React/Tailwind 程式碼
-  const prompt = `你是一位資深的 Next.js 與 Tailwind CSS 前端工程師。
-這是一個名為 Sport Café 的精品咖啡與運動複合品牌首頁檔案：src/app/page.tsx。
+  const prompt = `你是一位資深的 Next.js 15 與 Tailwind CSS 前端工程師。
+以下是 Sport Café 品牌的首頁檔案：src/app/page.tsx。
 
 【管理員的修改要求】：
 "${userInstruction}"
@@ -102,11 +102,11 @@ async function modifyFrontendCode(userInstruction: string): Promise<string> {
 【目前首頁的完整程式碼】：
 ${currentContent}
 
-【修改任務】：
-1. 嚴格根據管理員要求修改程式碼（例如按鈕色彩、樣式、版面、文字調整等）。
-2. 保留原有完整的 Suspense、TypeScript interface、Redis 設定與響應式邏輯。
-3. 務必保持 JSX 語法完全正確，不要缺少任何結束標籤。
-4. 僅回傳修改後的「完整程式碼」，不要包含任何 markdown 解釋文字、不要包含 \`\`\`tsx 或 \`\`\` 區塊標籤。直接以 import 開頭輸出純文字代碼。`;
+【修改規則】：
+1. 嚴格根據管理員的要求進行微調修改（例如調整顏色、樣式、排版或文字等）。
+2. 必須完整保留原有的 Suspense、SiteConfig、defaultConfig、getLiveConfig() 與 Redis 邏輯。
+3. 務必保持 JSX 語法完全正確，不要缺少任何閉合標籤。
+4. 絕對不要有任何問候語、解釋文字或前後說明！第一行必須直接以 "import" 開頭！輸出整份完整的 TypeScript React 程式碼。`;
 
   const aiRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -115,6 +115,10 @@ ${currentContent}
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 8192,
+        },
       }),
     }
   );
@@ -122,17 +126,24 @@ ${currentContent}
   const aiData = await aiRes.json();
   let updatedCode = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-  // 去除 markdown 標籤
-  updatedCode = updatedCode
-    .replace(/^```[a-zA-Z]*\n/m, "")
-    .replace(/\n```$/m, "")
-    .trim();
+  // 強固過濾：去除 markdown 代碼區塊標記
+  const codeBlockMatch = updatedCode.match(/```(?:tsx|typescript|jsx|js)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    updatedCode = codeBlockMatch[1];
+  }
 
-  if (!updatedCode.startsWith("import")) {
+  // 強固過濾：自動消除 AI 可能產生的任何前置問候語，精準從第一個 import 開始抓取
+  const importIndex = updatedCode.indexOf("import");
+  if (importIndex !== -1) {
+    updatedCode = updatedCode.slice(importIndex).trim();
+  }
+
+  // 安全防護驗證：確認程式碼具備完整 Next.js 頁面結構
+  if (!updatedCode.startsWith("import") || !updatedCode.includes("export default function")) {
     return "AI 生成代碼格式有誤，已取消自動 Commit 以保護網站安全。";
   }
 
-  // 3. 將修改後的代碼 Commit 回 GitHub main 分支
+  // 3. 將修改後的代碼自動 Commit 回 GitHub main 分支
   const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
   const putRes = await fetch(putUrl, {
     method: "PUT",
@@ -218,7 +229,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 6. 第一重保險：網址綁定公告（Redis 高速通道）
+      // 6. 網址綁定公告（Redis 高速通道）
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
       if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
         const targetUrl = urlMatch[0];
@@ -238,7 +249,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 第一重保險：純文字標題與公告修改（Redis 高速通道）
+      // 7. 純文字標題與公告修改（Redis 高速通道）
       if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
         let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
         if (newTitle && REDIS_URL) {
@@ -285,7 +296,7 @@ export async function POST(req: NextRequest) {
         if (result === "SUCCESS") {
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼並推送到 GitHub！\n\n⚡ Vercel 正在自動建置上線（約 20 秒）。建置完成後，您可以 @ 我說「截圖」，我會立刻拍下最新實機畫面給您驗收！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼並自動推送到 GitHub！\n\n⚡ Vercel 正在自動建置上線（約 20 秒）。稍後您可以 @ 我說「截圖」，我會立刻拍下最新畫面給您驗收！`
           );
           continue;
         } else {
