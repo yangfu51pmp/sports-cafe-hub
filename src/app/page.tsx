@@ -6,8 +6,8 @@ export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
-  // 高質感香檳金漸層樣式變數
-  const goldGradientStyle = "bg-gradient-to-r from-[#D4AF37] via-[#AA771C] to-[#8C6213] text-white shadow-md";
+  // 高質感純金樣式（無漸層）
+  const pureGoldStyle = "bg-[#C8A878] hover:bg-[#B89868] text-white shadow-md";
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
@@ -125,7 +125,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
           <div className="relative z-10 max-w-7xl w-full mx-auto px-8 pb-16">
-            <div className={`inline-block px-4 py-1.5 mb-3 rounded-full text-xs font-bold tracking-[0.25em] uppercase ${goldGradientStyle}`}>
+            <div className={`inline-block px-4 py-1.5 mb-3 rounded-full text-xs font-bold tracking-[0.25em] uppercase ${pureGoldStyle}`}>
               ✦ SPORT CAFÉ EXCLUSIVE ✦
             </div>
             <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4 leading-tight">
@@ -222,13 +222,13 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* 6. 手機底部固定導覽列（全面改為香檳金漸層風格） */}
+      {/* 6. 手機底部固定導覽列（純金無漸層風格） */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-white border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${goldGradientStyle}`}
+          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${pureGoldStyle}`}
         >
           <span>💬 LINE 台北</span>
         </a>
@@ -236,20 +236,20 @@ export default function HomePage() {
           href="https://line.me"
           target="_blank"
           rel="noopener noreferrer"
-          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${goldGradientStyle}`}
+          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${pureGoldStyle}`}
         >
           <span>💬 LINE 仙台</span>
         </a>
         <a
           href="tel:0227000000"
-          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${goldGradientStyle}`}
+          className={`flex-1 flex items-center justify-center gap-1 text-xs font-bold tracking-wider border-r border-white/20 ${pureGoldStyle}`}
         >
           <span>📞 來電諮詢</span>
         </a>
         <button
           onClick={() => setContactOpen(!contactOpen)}
           aria-label="展開"
-          className={`w-14 flex items-center justify-center text-xl font-bold ${goldGradientStyle}`}
+          className={`w-14 flex items-center justify-center text-xl font-bold ${pureGoldStyle}`}
         >
           {contactOpen ? "✕" : "＋"}
         </button>
