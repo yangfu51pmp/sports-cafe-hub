@@ -89,16 +89,6 @@ export default function HomePage() {
             </svg>
           </button>
           
-          {/* 這裡套用管家可控的 btnStyle 金色漸層 */}
-          <a
-            href="https://line.me"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`hidden sm:inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-bold tracking-wider transition ${config.btnStyle}`}
-          >
-            <span>LINE 預約</span>
-          </a>
-
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="選單"
@@ -153,7 +143,8 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
           <div className="relative z-10 max-w-7xl w-full mx-auto px-8 pb-16">
-            <div className="inline-block px-3.5 py-1 mb-3 rounded bg-[#7A1B28] text-[#F3D299] text-[11px] font-semibold tracking-[0.2em] uppercase">
+            {/* 這裡直接綁定管家可控的 btnStyle 金色漸層 */}
+            <div className={`inline-block px-3.5 py-1 mb-3 rounded text-[11px] font-semibold tracking-[0.2em] uppercase ${config.btnStyle}`}>
               SPORT CAFÉ EXCLUSIVE
             </div>
             <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4 leading-tight">
