@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createClient } from "redis";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const REDIS_URL =
   process.env.REDIS_URL ||
@@ -16,11 +15,11 @@ async function getSiteConfig() {
     title: "SPORT CAFÉ",
     announcement: "民安少棒・巨人盃賽事直播中！",
     announcementUrl: "https://youtube.com",
-    // 預設跑馬燈動態（支援 animate-bounce、animate-pulse、animate-marquee 等）
+    // 預設跑馬燈動態（支援 animate-bounce、animate-pulse 等）
     bannerAnimation: "animate-pulse",
     // 預設首頁背景圖（經典黑咖啡特寫）
     heroImage: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",
-    // 預設門市預約按鈕樣式（電腦版與手機版）
+    // 預設門市預約按鈕樣式
     btnStyle: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]",
   };
 
@@ -113,7 +112,7 @@ export default async function HomePage() {
               結合日式極致手沖工藝與專業裝備借測。300天職人心得淬鍊，專注升級的現代複合空間。
             </p>
 
-            {/* 門市體驗據點雙按鈕（樣式由 Redis 動態控制） */}
+            {/* 門市體驗據點雙按鈕 */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
               <a
                 href="https://line.me"
