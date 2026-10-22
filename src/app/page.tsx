@@ -274,7 +274,7 @@ async function LuxuryResponsiveView() {
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#BA9868] hover:bg-[#a68455] md:bg-[#BA9868] md:hover:bg-[#a68455] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                className="text-xs bg-[#BA9868] hover:bg-[#a68455] md:bg-[#06C755] md:hover:bg-[#05b34c] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                   <path d="M24 10.3c0-4.6-5.4-8.3-12-8.3S0 5.7 0 10.3c0 4.1 3.6 7.5 8.5 8.2.3.1.8.2 1 .7.1.3.1.8 0 1.2l-.4 1.5c-.1.5-.6 2-.2 2.3.4.2 1.6-.9 2.5-1.8 2.6-2.6 4.7-3.2 4.7-3.2 4.8-.5 7.9-4.3 7.9-8.9z" />
@@ -305,7 +305,7 @@ async function LuxuryResponsiveView() {
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] md:bg-[#BA9868] md:hover:bg-[#a68455] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] md:bg-[#06C755] md:hover:bg-[#05b34c] text-white px-4 py-2.5 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
               >
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
                   <path d="M24 10.3c0-4.6-5.4-8.3-12-8.3S0 5.7 0 10.3c0 4.1 3.6 7.5 8.5 8.2.3.1.8.2 1 .7.1.3.1.8 0 1.2l-.4 1.5c-.1.5-.6 2-.2 2.3.4.2 1.6-.9 2.5-1.8 2.6-2.6 4.7-3.2 4.7-3.2 4.8-.5 7.9-4.3 7.9-8.9z" />
