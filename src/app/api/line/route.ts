@@ -103,7 +103,7 @@ async function modifyFrontendCode(userInstruction: string): Promise<string> {
 ${currentContent}
 
 【修改任務】：
-1. 嚴格根據管理員要求修改程式碼（例如按鈕色彩、樣式、版面、文字調整等）。
+1. 嚴格根據管理員要求修改程式碼（例如文字替換、按鈕色彩、樣式、版面調整等）。
 2. 保留原有完整的 Suspense、TypeScript interface、Redis 設定與響應式邏輯。
 3. 務必保持 JSX 語法完全正確，不要缺少任何結束標籤。
 4. 僅回傳修改後的「完整程式碼」，不要包含任何 markdown 解釋文字、不要包含 \`\`\`tsx 或 \`\`\` 區塊標籤。直接以 import 開頭輸出純文字代碼。`;
@@ -115,7 +115,7 @@ ${currentContent}
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-      }),
+      },
     }
   );
 
@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 6. 第一重保險：網址綁定公告（Redis 高速通道）
+      // 6. 網址綁定公告（Redis 高速通道）
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
       if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
         const targetUrl = urlMatch[0];
@@ -238,9 +238,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 第一重保險：純文字標題與公告修改（Redis 高速通道）
-      if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
-        let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
+      // 7. 彈性標題與公告修改（支援包含「標題改為」、「公告改為」或「改成」的文字指令）
+      if (cleanText.includes("標題改為") || cleanText.includes("標題換成")) {
+        let newTitle = cleanText.replace(/.*?標題(改為|換成)[：:\s]*/, "").trim();
         if (newTitle && REDIS_URL) {
           const client = createClient({ url: REDIS_URL });
           await client.connect();
@@ -257,35 +257,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (cleanText.startsWith("公告改為") || cleanText.startsWith("公告換成")) {
-        let directNotice = cleanText.replace(/^公告(改為|換成)[：:\s]*/, "").trim();
-        if (directNotice && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_announcement", directNotice);
-          await client.quit();
+      // 8. 智慧 AI 前端代碼修改（舉凡「改成」、「換成」、「顏色」、「排版」、「按鈕」等所有修改需求交給 Gemini AI）
+      const modificationKeywords = ["改", "換", "顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "調整", "增加", "刪除"];
+      const isModification = modificationKeywords.some((kw) => cleanText.includes(kw));
 
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      // 8. 智能代碼修改核心（樣式、顏色、排版、按鈕調整）
-      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "換成", "調整", "增加", "刪除", "電腦版", "手機版"];
-      const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
-
-      if (isCodeModification && GITHUB_TOKEN) {
+      if (isModification && GITHUB_TOKEN) {
         const result = await modifyFrontendCode(cleanText);
 
         if (result === "SUCCESS") {
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼並推送到 GitHub！\n\n⚡ Vercel 正在自動建置上線（約 20 秒）。建置完成後，您可以 @ 我說「截圖」，我會立刻拍下最新實機畫面給您驗收！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整代碼並推送到 GitHub！\n\n⚡ Vercel 正在自動建置上線（約 20 秒）。建置完成後，請 @ 我說「截圖」，我會立刻拍下最新實機畫面給您驗收！`
           );
           continue;
         } else {
@@ -298,7 +280,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版的按鈕顏色調整為...\n• 標題改為：最新戰況\n• 截圖（查看目前畫面）"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 專業嚴選裝備 改成 職人嚴選裝備\n• 標題改為：民安少棒加油！！\n• 截圖（查看目前畫面）"
         );
       }
     }
