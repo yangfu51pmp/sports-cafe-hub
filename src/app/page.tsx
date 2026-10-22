@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { createClient } from "redis";
 
 const REDIS_URL =
@@ -7,20 +8,18 @@ const REDIS_URL =
   process.env.KV_URL ||
   "";
 
-// 取得 Redis 動態視覺與內容設定
-async function getSiteConfig() {
-  const defaultConfig = {
-    title: "SPORT CAFÉ",
-    announcement: "民安少棒・巨人盃賽事直播中！",
-    announcementUrl: "https://youtube.com",
-    // 預設跑馬燈動態（支援 animate-bounce、animate-pulse 等）
-    bannerAnimation: "animate-pulse",
-    // 預設首頁背景圖（經典黑咖啡特寫）
-    heroImage: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",
-    // 預設門市預約按鈕樣式
-    btnStyle: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]",
-  };
+// 預設品牌基礎配置
+const defaultConfig = {
+  title: "SPORT CAFÉ",
+  announcement: "民安少棒・巨人盃賽事直播中！",
+  announcementUrl: "https://youtube.com",
+  bannerAnimation: "animate-pulse",
+  heroImage: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop",
+  btnStyle: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]",
+};
 
+// 讀取 Redis 即時設定
+async function getSiteConfig() {
   if (!REDIS_URL) return defaultConfig;
 
   try {
@@ -50,9 +49,8 @@ async function getSiteConfig() {
   }
 }
 
-export default async function HomePage() {
-  const config = await getSiteConfig();
-
+// 視覺排版組件
+function CafeView({ config }: { config: typeof defaultConfig }) {
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col font-sans">
       {/* 頂部動態公告欄（支援上下跳動、呼吸閃爍、跑馬燈） */}
@@ -90,13 +88,12 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* Hero 視覺核心（動態背景圖） */}
+      {/* Hero 視覺核心（背景圖由 Live Config 即時控制） */}
       <main className="flex-1">
         <section
           className="relative min-h-[520px] md:min-h-[620px] flex items-center justify-center bg-cover bg-center transition-all duration-700"
           style={{ backgroundImage: `url('${config.heroImage}')` }}
         >
-          {/* 高質感漸層遮罩 */}
           <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-stone-950/60 to-stone-950/40" />
 
           <div className="relative z-10 max-w-4xl mx-auto px-6 py-20 text-center">
@@ -159,5 +156,21 @@ export default async function HomePage() {
         <p>© 2026 SPORT CAFÉ GROUP. All rights reserved.</p>
       </footer>
     </div>
+  );
+}
+
+// 真實訪客連線時載入動態配置
+async function DynamicHomePage() {
+  await connection();
+  const config = await getSiteConfig();
+  return <CafeView config={config} />;
+}
+
+// 頁面主入口：透過 Suspense 隔離打包期與執行期
+export default function HomePage() {
+  return (
+    <Suspense fallback={<CafeView config={defaultConfig} />}>
+      <DynamicHomePage />
+    </Suspense>
   );
 }
