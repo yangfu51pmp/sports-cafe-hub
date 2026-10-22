@@ -139,7 +139,7 @@ async function LuxuryResponsiveView() {
         <div
           className="absolute inset-0 bg-cover bg-center brightness-[0.88]"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=1600&auto=format&fit=crop')`,
+            backgroundImage: `url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=1600&auto=format&fit=crop')`,
           }}
         />
 
