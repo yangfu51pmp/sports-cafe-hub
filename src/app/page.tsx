@@ -1,31 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
-
-const defaultConfig = {
-  title: "SPORT CAFÉ",
-  announcement: "民安少棒・巨人盃賽事直播中！",
-  announcementUrl: "https://youtube.com",
-  bannerAnimation: "animate-pulse",
-  heroImage: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop",
-  btnStyle: "bg-gradient-to-r from-[#C8A878] via-[#BA9868] to-[#B08D5B] text-white shadow-md",
-};
+import { useState } from "react";
 
 export default function HomePage() {
-  const [config, setConfig] = useState(defaultConfig);
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/config")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.title) {
-          setConfig((prev) => ({ ...prev, ...data }));
-        }
-      })
-      .catch(() => {});
-  }, []);
+  // 直接鎖定高質感香檳金漸層樣式
+  const goldGradientStyle = "bg-gradient-to-r from-[#D4AF37] via-[#AA771C] to-[#8C6213] text-white shadow-md";
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
@@ -47,12 +29,12 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
           <a
-            href={config.announcementUrl}
+            href="https://youtube.com"
             target="_blank"
             rel="noopener noreferrer"
-            className={`font-medium tracking-wide inline-block ${config.bannerAnimation}`}
+            className="font-medium tracking-wide inline-block animate-pulse"
           >
-            <span>{config.announcement}</span>
+            <span>民安少棒・巨人盃賽事直播中！</span>
             <span className="ml-2 text-[#F3D299] underline underline-offset-4">
               點擊進入直播 ↗
             </span>
@@ -67,7 +49,7 @@ export default function HomePage() {
             S
           </div>
           <span className="font-extrabold tracking-[0.2em] text-xl text-[#7A1B28]">
-            {config.title}
+            SPORT CAFÉ
           </span>
         </div>
 
@@ -138,14 +120,14 @@ export default function HomePage() {
       <main className="flex-1">
         <section
           className="relative h-[520px] sm:h-[600px] flex flex-col justify-end bg-cover bg-center transition-all duration-700"
-          style={{ backgroundImage: `url('${config.heroImage}')` }}
+          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop')` }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
 
           <div className="relative z-10 max-w-7xl w-full mx-auto px-8 pb-16">
-            {/* 這裡直接綁定管家可控的 btnStyle 金色漸層 */}
-            <div className={`inline-block px-3.5 py-1 mb-3 rounded text-[11px] font-semibold tracking-[0.2em] uppercase ${config.btnStyle}`}>
-              SPORT CAFÉ EXCLUSIVE
+            {/* 這裡套用強制鎖定的香檳金漸層樣式 */}
+            <div className={`inline-block px-4 py-1.5 mb-3 rounded-full text-xs font-bold tracking-[0.25em] uppercase ${goldGradientStyle}`}>
+              ✦ SPORT CAFÉ EXCLUSIVE ✦
             </div>
             <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4 leading-tight">
               全國一起為民安少棒加油！
