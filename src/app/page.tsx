@@ -12,7 +12,7 @@ interface SiteConfig {
 const defaultConfig: SiteConfig = {
   announcement: "民安少棒・巨人盃賽事直播中！",
   announcement_url: "https://www.youtube.com/live/TZuMAgnX3ds?si=zYQDBveiTXe6xOHp",
-  title: "民安少棒八強進擊！",
+  title: "全國一起為民安少棒加油！",
   description: "結合日式極致手沖工藝與專業裝備借測\n300天職人匠心淬鍊・專注升級的現代複合空間",
 };
 
@@ -50,7 +50,7 @@ async function LuxuryResponsiveView() {
   const config = await getLiveConfig();
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-stone-800 pb-28 md:pb-0 select-none antialiased">
+    <div className="min-h-screen bg-[#F8F7F4] text-stone-800 pb-24 md:pb-0 select-none antialiased">
       {/* 0. 即時公告與賽事直播橫幅 */}
       {config.announcement && (
         <aside className="bg-[#7A1B28] text-white px-4 py-2.5 text-center text-xs md:text-sm tracking-wider font-light flex items-center justify-center gap-2 shadow-sm">
@@ -206,7 +206,7 @@ async function LuxuryResponsiveView() {
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
                 <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" />
-                  <path strokeLinecap="round" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  <path strokeLinecap="round" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z" />
                 </svg>
               </div>
               <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">仙台交流</span>
@@ -266,7 +266,7 @@ async function LuxuryResponsiveView() {
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#246B3E] hover:bg-[#1b5530] text-white px-4 py-2 rounded-xl font-medium transition"
+                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] text-white px-4 py-2 rounded-xl font-medium transition"
               >
                 LINE 台北預約
               </a>
@@ -292,7 +292,7 @@ async function LuxuryResponsiveView() {
                 href="https://line.me"
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs bg-[#246B3E] hover:bg-[#1b5530] text-white px-4 py-2 rounded-xl font-medium transition"
+                className="text-xs bg-[#BA9868] hover:bg-[#a68455] text-white px-4 py-2 rounded-xl font-medium transition"
               >
                 LINE 仙台交流
               </a>
@@ -323,27 +323,25 @@ async function LuxuryResponsiveView() {
         </div>
       </footer>
 
-      {/* 6. 手機端專屬：英爵 VIP 經典聯絡列 ＋ 互動對話氣泡（md 以上自動隱藏） */}
+      {/* 6. 手機端專屬：香檳金金屬吸頂底部導覽列 ＋ 互動對話氣泡（md 以上自動隱藏） */}
       <aside className="md:hidden fixed bottom-0 left-0 right-0 z-50">
-        {/* (A) 懸浮互動對話氣泡 */}
-        <div className="max-w-md mx-auto px-3 flex justify-end mb-2 pointer-events-auto">
+        {/* (A) 懸浮互動對話氣泡（香檳金細框質感） */}
+        <div className="max-w-md mx-auto px-4 flex justify-end mb-2 pointer-events-auto">
           <a
             href="https://line.me"
             target="_blank"
             rel="noreferrer"
-            className="relative bg-white border border-[#7A1B28] rounded-2xl px-3 py-2 shadow-xl flex items-center gap-2 max-w-[245px] hover:scale-[1.02] active:scale-95 transition"
+            className="relative bg-white/95 backdrop-blur-sm border border-[#BA9868] rounded-2xl px-3 py-2 shadow-xl flex items-center gap-2 max-w-[245px] hover:scale-[1.02] active:scale-95 transition"
           >
             {/* 氣泡向下小指針 */}
-            <div className="absolute -bottom-1.5 right-14 w-3 h-3 bg-white border-b border-r border-[#7A1B28] rotate-45" />
+            <div className="absolute -bottom-1.5 right-14 w-3 h-3 bg-white border-b border-r border-[#BA9868] rotate-45" />
 
-            {/* 左側精緻紅線圖示 */}
-            <div className="w-7 h-7 rounded-full bg-[#7A1B28]/10 text-[#7A1B28] flex items-center justify-center shrink-0">
+            <div className="w-7 h-7 rounded-full bg-[#BA9868]/15 text-[#BA9868] flex items-center justify-center shrink-0">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
 
-            {/* 氣泡文案 */}
             <div className="flex-1 text-[11px] leading-tight text-left">
               <p className="font-normal text-stone-700">想知道哪款裝備適合你？</p>
               <p className="font-bold text-[#7A1B28] mt-0.5">點我問問看～</p>
@@ -353,80 +351,76 @@ async function LuxuryResponsiveView() {
           </a>
         </div>
 
-        {/* (B) 底部四分割聯絡列 */}
-        <div className="bg-white border-t border-stone-200 shadow-2xl flex items-stretch h-14 max-w-md mx-auto divide-x divide-stone-200">
-          {/* 按鈕 1：深綠底白字 LINE 台北 */}
-          <a
-            href="https://line.me"
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 bg-[#246B3E] text-white flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wider active:bg-[#1b5530] transition"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
-            <span className="truncate">LINE 台北</span>
-          </a>
-
-          {/* 按鈕 2：深綠底白字 LINE 仙台 */}
-          <a
-            href="https://line.me"
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 bg-[#246B3E] text-white flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wider active:bg-[#1b5530] transition"
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
-            <span className="truncate">LINE 仙台</span>
-          </a>
-
-          {/* 按鈕 3：白底酒紅字 來電諮詢 */}
-          <a
-            href="tel:0225000000"
-            className="flex-1 bg-white text-[#7A1B28] flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wider active:bg-stone-50 transition"
-          >
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 0 1 2-2h3.28a1 1 0 0 1 .948.684l1.498 4.493a1 1 0 0 1-.502 1.21l-2.257 1.13a11.042 11.042 0 0 0 5.516 5.516l1.13-2.257a1 1 0 0 1 1.21-.502l4.493 1.498a1 1 0 0 1 .684.949V19a2 2 0 0 1-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-            </svg>
-            <span className="truncate">來電諮詢</span>
-          </a>
-
-          {/* 按鈕 4：＋ 展開更多選項 */}
-          <details className="relative shrink-0">
-            <summary
-              aria-label="更多聯絡方式"
-              className="list-none w-14 h-full bg-white text-stone-800 flex items-center justify-center cursor-pointer hover:bg-stone-50 active:bg-stone-100 transition"
+        {/* (B) 英爵同款經典：香檳金金屬漸層導覽列 */}
+        <nav className="bg-gradient-to-r from-[#BA9868] via-[#D8C49F] to-[#B59261] text-white shadow-2xl border-t border-white/25">
+          <div className="max-w-md mx-auto h-14 flex items-center divide-x divide-white/25">
+            {/* 按鈕 1：線上客服 */}
+            <a
+              href="https://line.me"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1 px-1 text-center active:opacity-75 transition"
             >
-              <span className="text-xl font-light text-stone-600 leading-none">＋</span>
-            </summary>
-            <div className="absolute right-2 bottom-16 w-48 bg-white rounded-2xl shadow-2xl border border-stone-200/90 p-3 py-3 flex flex-col gap-1 text-xs text-stone-700 z-50">
-              <span className="text-[10px] uppercase tracking-widest text-[#7A1B28] font-bold px-2 pb-1 border-b border-stone-100">
-                更多聯繫方式
-              </span>
-              <a
-                href="https://facebook.com"
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-2 rounded-xl hover:bg-stone-50 transition font-medium flex items-center gap-2"
-              >
-                <span>📘 Facebook 粉絲專頁</span>
-              </a>
-              <a
-                href="https://weixin.qq.com"
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-2 rounded-xl hover:bg-stone-50 transition font-medium flex items-center gap-2"
-              >
-                <span>💬 仙台基地 微信客服</span>
-              </a>
-              <a
-                href="https://maps.google.com"
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-2 rounded-xl hover:bg-stone-50 transition font-medium flex items-center gap-2"
-              >
-                <span>📍 台北體驗館 地圖導航</span>
-              </a>
-            </div>
-          </details>
-        </div>
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M24 10.3c0-4.6-5.4-8.3-12-8.3S0 5.7 0 10.3c0 4.1 3.6 7.5 8.5 8.2.3.1.8.2 1 .7.1.3.1.8 0 1.2l-.4 1.5c-.1.5-.6 2-.2 2.3.4.2 1.6-.9 2.5-1.8 2.6-2.6 4.7-3.2 4.7-3.2 4.8-.5 7.9-4.3 7.9-8.9z" />
+                </svg>
+              </div>
+              <div className="text-[11px] leading-tight text-white font-medium drop-shadow-sm text-left">
+                線上<br />客服
+              </div>
+            </a>
+
+            {/* 按鈕 2：諮詢專線 */}
+            <a
+              href="tel:0225000000"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1 px-1 text-center active:opacity-75 transition"
+            >
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 0 1 2-2h3.28a1 1 0 0 1 .948.684l1.498 4.493a1 1 0 0 1-.502 1.21l-2.257 1.13a11.042 11.042 0 0 0 5.516 5.516l1.13-2.257a1 1 0 0 1 1.21-.502l4.493 1.498a1 1 0 0 1 .684.949V19a2 2 0 0 1-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </div>
+              <div className="text-[11px] leading-tight text-white font-medium drop-shadow-sm text-left">
+                諮詢<br />專線
+              </div>
+            </a>
+
+            {/* 按鈕 3：粉專客服 */}
+            <a
+              href="https://facebook.com"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1 px-1 text-center active:opacity-75 transition"
+            >
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.03 2 11c0 2.83 1.46 5.36 3.75 6.95v3.42l3.32-1.82c.93.26 1.91.4 2.93.4 5.52 0 10-4.03 10-9s-4.48-9-10-9zm1.05 12.18-2.68-2.86-5.23 2.86 5.75-6.11 2.74 2.86 5.17-2.86-5.75 6.11z" />
+                </svg>
+              </div>
+              <div className="text-[11px] leading-tight text-white font-medium drop-shadow-sm text-left">
+                粉專<br />客服
+              </div>
+            </a>
+
+            {/* 按鈕 4：仙台客服 */}
+            <a
+              href="https://weixin.qq.com"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-1 flex items-center justify-center gap-1.5 py-1 px-1 text-center active:opacity-75 transition"
+            >
+              <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M8.5 4.5C4.36 4.5 1 7.29 1 10.73c0 1.94 1.07 3.68 2.76 4.82L3 18l2.91-1.46c.8.23 1.67.36 2.59.36.27 0 .54-.01.8-.04-.2-.59-.3-1.22-.3-1.86 0-3.72 3.58-6.73 8-6.73.19 0 .37 0 .56.02C16.81 5.92 12.98 4.5 8.5 4.5zm-2.25 4a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zm4.5 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5zM17 10c-3.87 0-7 2.69-7 6s3.13 6 7 6c.77 0 1.51-.11 2.2-.31L22 23l-.7-2.09c1.07-.98 1.7-2.37 1.7-3.91 0-3.31-3.13-6-7-6zm-2.25 3.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2zm4.5 0a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+                </svg>
+              </div>
+              <div className="text-[11px] leading-tight text-white font-medium drop-shadow-sm text-left">
+                仙台<br />客服
+              </div>
+            </a>
+          </div>
+        </nav>
       </aside>
     </div>
   );
