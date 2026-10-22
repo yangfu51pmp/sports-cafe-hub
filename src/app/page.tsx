@@ -46,16 +46,16 @@ async function getLiveConfig(): Promise<SiteConfig> {
   return config;
 }
 
-async function LuxuryWBeautyView() {
+async function LuxuryResponsiveView() {
   const config = await getLiveConfig();
 
   return (
-    <div className="min-h-screen bg-[#F8F7F4] text-stone-800 pb-20 select-none antialiased">
-      {/* 0. 最上方：即時公告與賽事直播橫幅 */}
+    <div className="min-h-screen bg-[#F8F7F4] text-stone-800 pb-20 md:pb-0 select-none antialiased">
+      {/* 0. 即時公告與賽事直播橫幅（全寬置頂） */}
       {config.announcement && (
-        <aside className="bg-[#7A1B28] text-white px-4 py-2 text-center text-xs tracking-wider font-light flex items-center justify-center gap-1.5 shadow-sm">
+        <aside className="bg-[#7A1B28] text-white px-4 py-2.5 text-center text-xs md:text-sm tracking-wider font-light flex items-center justify-center gap-2 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
-          <span className="font-medium truncate max-w-[260px]">
+          <span className="font-medium truncate max-w-[280px] md:max-w-2xl">
             {config.announcement}
           </span>
           {config.announcement_url && (
@@ -63,7 +63,7 @@ async function LuxuryWBeautyView() {
               href={config.announcement_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-200 underline underline-offset-2 ml-1 text-[11px] whitespace-nowrap hover:text-white transition"
+              className="text-amber-200 underline underline-offset-2 ml-1 text-[11px] md:text-xs whitespace-nowrap hover:text-white transition"
             >
               點擊進入直播 ↗
             </a>
@@ -71,21 +71,31 @@ async function LuxuryWBeautyView() {
         </aside>
       )}
 
-      {/* 1. 頂部導覽列：英爵風格（左側品牌 LOGO、右側搜尋與選單） */}
+      {/* 1. 頂部導覽列（手機精簡／電腦完整展開） */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/70">
-        <div className="max-w-md mx-auto px-5 h-14 flex items-center justify-between">
-          {/* 左側 LOGO */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-[#7A1B28] flex items-center justify-center text-white font-serif font-bold text-sm shadow-sm">
+        <div className="max-w-6xl mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
+          {/* 左側品牌 LOGO */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#7A1B28] flex items-center justify-center text-white font-serif font-bold text-base shadow-sm">
               S
             </div>
-            <span className="font-serif tracking-widest text-[#7A1B28] font-bold text-lg">
+            <span className="font-serif tracking-widest text-[#7A1B28] font-bold text-lg md:text-xl">
               SPORT CAFÉ
             </span>
           </div>
 
-          {/* 右側：搜尋放大鏡 + 漢堡選單 */}
+          {/* 電腦版選單導覽（md 以上顯示） */}
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-700">
+            <a href="#services" className="hover:text-[#7A1B28] transition">門市服務</a>
+            <a href="#services" className="hover:text-[#7A1B28] transition">手沖豆單</a>
+            <a href="#services" className="hover:text-[#7A1B28] transition">裝備借測</a>
+            <a href="#branches" className="hover:text-[#7A1B28] transition">仙台交流</a>
+            <a href="#branches" className="hover:text-[#7A1B28] transition">門市據點</a>
+          </nav>
+
+          {/* 右側操作區 */}
           <div className="flex items-center gap-4 text-[#7A1B28]">
+            {/* 搜尋圖示 */}
             <button
               type="button"
               aria-label="搜尋"
@@ -97,8 +107,16 @@ async function LuxuryWBeautyView() {
               </svg>
             </button>
 
-            {/* 原生純 CSS 展開選單（點擊自動彈出高質感抽屜） */}
-            <details className="relative group">
+            {/* 電腦版獨立預約 CTA 按鈕 */}
+            <a
+              href="#branches"
+              className="hidden md:inline-flex items-center px-4 py-2 rounded-xl bg-[#7A1B28] text-white text-xs font-semibold tracking-wider hover:bg-[#63141f] shadow-sm transition"
+            >
+              立即預約
+            </a>
+
+            {/* 手機版原生抽屜漢堡選單（md 以上自動隱藏） */}
+            <details className="relative md:hidden group">
               <summary
                 aria-label="選單開關"
                 className="list-none p-1 cursor-pointer hover:opacity-75 transition active:scale-95"
@@ -112,9 +130,9 @@ async function LuxuryWBeautyView() {
                   Navigation
                 </span>
                 <a href="#services" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">門市服務分類</a>
-                <a href="#menu" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">精品手沖豆單</a>
-                <a href="#gear" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">運動裝備借測</a>
-                <a href="#sendai" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">日本仙台交流基地</a>
+                <a href="#services" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">精品手沖豆單</a>
+                <a href="#services" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">運動裝備借測</a>
+                <a href="#branches" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">日本仙台交流基地</a>
                 <a href="#branches" className="px-3 py-2 rounded-xl hover:bg-stone-50 transition font-medium">預約與門市據點</a>
               </div>
             </details>
@@ -122,33 +140,33 @@ async function LuxuryWBeautyView() {
         </div>
       </header>
 
-      {/* 2. 主視覺 Hero 區：大片精品模特/意境圖 + 輪播操控點 */}
-      <section className="relative max-w-md mx-auto bg-stone-900 overflow-hidden min-h-[460px] flex flex-col justify-end">
-        {/* 背景大圖（高質感精品氛圍） */}
+      {/* 2. 主視覺 Hero 區（電腦寬幅橫展／手機精品直立） */}
+      <section className="relative w-full bg-stone-900 overflow-hidden min-h-[460px] md:min-h-[580px] lg:min-h-[620px] flex flex-col justify-end">
+        {/* 背景大圖 */}
         <div
           className="absolute inset-0 bg-cover bg-center brightness-[0.88]"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1200&auto=format&fit=crop')`,
+            backgroundImage: `url('https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=1600&auto=format&fit=crop')`,
           }}
         />
 
-        {/* 漸層漸變遮罩（確保文字極致清晰） */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+        {/* 漸層遮罩 */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent md:bg-gradient-to-r md:from-black/85 md:via-black/50 md:to-transparent" />
 
-        {/* 左側大標題與文案（連動 LINE 指令即時更新） */}
-        <div className="relative z-10 px-6 pb-14 text-white">
-          <span className="inline-block text-[10px] uppercase tracking-[0.25em] text-amber-200/90 font-semibold mb-2 bg-[#7A1B28]/80 px-2 py-0.5 rounded-sm">
+        {/* 大標題文案與輪播器（容器限制在 max-w-6xl 居中） */}
+        <div className="relative z-10 max-w-6xl w-full mx-auto px-6 md:px-8 pb-14 md:pb-20 text-white">
+          <span className="inline-block text-[10px] md:text-xs uppercase tracking-[0.25em] text-amber-200/90 font-semibold mb-3 bg-[#7A1B28]/85 px-2.5 py-1 rounded">
             SPORT CAFÉ EXCLUSIVE
           </span>
-          <h1 className="text-3xl font-serif font-bold tracking-tight text-white mb-2 leading-snug drop-shadow-md">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold tracking-tight text-white mb-3 md:mb-4 leading-tight drop-shadow-md">
             {config.title}
           </h1>
-          <p className="text-stone-200 text-xs leading-relaxed max-w-xs font-light whitespace-pre-line drop-shadow">
+          <p className="text-stone-200 text-xs md:text-base leading-relaxed max-w-xl font-light whitespace-pre-line drop-shadow">
             {config.description}
           </p>
 
-          {/* 輪播控制器：Prev / 圓點 / Next */}
-          <div className="flex items-center gap-6 mt-6 text-[11px] tracking-widest text-stone-300 font-light">
+          {/* 輪播控制點 */}
+          <div className="flex items-center gap-6 mt-6 md:mt-8 text-[11px] md:text-xs tracking-widest text-stone-300 font-light">
             <span className="cursor-pointer hover:text-white transition">∠ Prev</span>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full border border-white flex items-center justify-center">
@@ -162,126 +180,168 @@ async function LuxuryWBeautyView() {
         </div>
       </section>
 
-      {/* 3. 中間分類卡片：英爵同款白色懸浮圓角卡片與六大經典細線條分類 */}
-      <section id="services" className="relative z-20 max-w-md mx-auto -mt-6 px-4">
-        <div className="bg-white rounded-3xl p-6 shadow-xl border border-stone-200/60">
-          <div className="grid grid-cols-3 gap-y-6 gap-x-2 text-center">
+      {/* 3. 中間服務卡片：手機 3 欄 / 電腦一排 6 欄自適應展開 */}
+      <section id="services" className="relative z-20 max-w-6xl mx-auto -mt-6 md:-mt-12 px-4 md:px-8">
+        <div className="bg-white rounded-3xl p-6 md:p-8 shadow-xl border border-stone-200/60">
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-y-6 md:gap-4 text-center">
             {/* 分類 1 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">精品手沖</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">精品手沖</span>
             </div>
 
             {/* 分類 2 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">裝備借測</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">裝備借測</span>
             </div>
 
             {/* 分類 3 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">機能飲品</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">機能飲品</span>
             </div>
 
             {/* 分類 4 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" />
                   <path strokeLinecap="round" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">仙台交流</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">仙台交流</span>
             </div>
 
             {/* 分類 5 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="8" />
                   <path strokeLinecap="round" d="m4.93 4.93 4.24 4.24M14.83 14.83l4.24 4.24M19.07 4.93l-4.24 4.24M9.17 14.83l-4.24 4.24" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">打擊體驗</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">打擊體驗</span>
             </div>
 
             {/* 分類 6 */}
-            <div className="flex flex-col items-center group cursor-pointer">
-              <div className="w-12 h-12 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white transition-all shadow-sm">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <div className="flex flex-col items-center group cursor-pointer p-2 rounded-2xl hover:bg-stone-50 transition-all">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-stone-50 border border-[#7A1B28]/15 flex items-center justify-center text-[#7A1B28] group-hover:bg-[#7A1B28] group-hover:text-white group-hover:-translate-y-1 transition-all shadow-sm">
+                <svg className="w-6 h-6 md:w-7 md:h-7" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-stone-800 mt-2.5 tracking-tight">VIP預約</span>
+              <span className="text-xs md:text-sm font-medium text-stone-800 mt-2.5 tracking-tight">VIP預約</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 4. 門市基地（台北旗艦店 & 仙台交流據點） */}
-      <section id="branches" className="max-w-md mx-auto px-5 mt-10">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-serif text-lg font-bold text-stone-900">門市體驗基地</h2>
-          <span className="text-[11px] text-[#7A1B28] font-medium">Taipei ✕ Sendai</span>
+      {/* 4. 門市體驗基地：手機單欄／電腦雙欄大器展現 */}
+      <section id="branches" className="max-w-6xl mx-auto px-5 md:px-8 mt-12 md:mt-16">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="font-serif text-xl md:text-2xl font-bold text-stone-900">門市據點與交流空間</h2>
+            <p className="text-xs md:text-sm text-stone-500 mt-1 font-light">提供預約借測、現場專業手沖與海外交流洽商</p>
+          </div>
+          <span className="text-xs md:text-sm text-[#7A1B28] font-semibold tracking-wider">
+            TAIPEI ✕ SENDAI
+          </span>
         </div>
 
-        <div className="space-y-3">
-          <div className="bg-white rounded-2xl p-5 border border-stone-200/70 shadow-sm flex items-center justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+          <div className="bg-white rounded-2xl p-6 border border-stone-200/70 shadow-sm flex flex-col justify-between hover:shadow-md transition">
             <div>
-              <span className="text-[10px] bg-[#7A1B28]/10 text-[#7A1B28] font-bold px-2 py-0.5 rounded">
-                台北基地
-              </span>
-              <h3 className="font-medium text-stone-800 text-sm mt-1.5">台北旗艦體驗館</h3>
-              <p className="text-xs text-stone-400 mt-0.5 font-light">營業時間：08:00 - 21:00（全週開放）</p>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-stone-900 text-base">台北旗艦體驗館</h3>
+                <span className="text-[10px] md:text-xs bg-[#7A1B28]/10 text-[#7A1B28] font-bold px-2 py-0.5 rounded">
+                  門市基地
+                </span>
+              </div>
+              <p className="text-xs md:text-sm text-stone-500 leading-relaxed font-light mt-1">
+                服務時間：週一至週日 08:00 - 21:00<br />
+                地址：台北市松山區專屬複合概念館
+              </p>
             </div>
-            <a
-              href="https://line.me"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs bg-stone-900 text-white px-3.5 py-2 rounded-xl font-medium hover:bg-black transition whitespace-nowrap"
-            >
-              預約參訪
-            </a>
+            <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
+              <span className="text-xs text-stone-400 font-light">現場無人智能手沖・原廠裝備借測</span>
+              <a
+                href="https://line.me"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs bg-stone-900 hover:bg-black text-white px-4 py-2 rounded-xl font-medium transition"
+              >
+                LINE 台北預約
+              </a>
+            </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-5 border border-stone-200/70 shadow-sm flex items-center justify-between">
+          <div className="bg-white rounded-2xl p-6 border border-stone-200/70 shadow-sm flex flex-col justify-between hover:shadow-md transition">
             <div>
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
-                跨國交流
-              </span>
-              <h3 className="font-medium text-stone-800 text-sm mt-1.5">日本仙台交流據點</h3>
-              <p className="text-xs text-stone-400 mt-0.5 font-light">台日少棒培訓與裝備對接・採預約制</p>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="font-semibold text-stone-900 text-base">日本仙台交流據點</h3>
+                <span className="text-[10px] md:text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">
+                  跨國基地
+                </span>
+              </div>
+              <p className="text-xs md:text-sm text-stone-500 leading-relaxed font-light mt-1">
+                服務時間：預約制接待交流<br />
+                對接日本少棒名師指導、台日移地訓練與品牌代理
+              </p>
             </div>
-            <a
-              href="https://line.me"
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs bg-[#7A1B28] text-white px-3.5 py-2 rounded-xl font-medium hover:bg-[#64141f] transition whitespace-nowrap"
-            >
-              交流洽詢
-            </a>
+            <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between">
+              <span className="text-xs text-stone-400 font-light">海外移地訓交流・裝備採購對接</span>
+              <a
+                href="https://line.me"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs bg-[#7A1B28] hover:bg-[#63141f] text-white px-4 py-2 rounded-xl font-medium transition"
+              >
+                LINE 仙台交流
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* 5. 下排吸頂聯繫方式：英爵經典「香檳金金屬漸層」底部固定導覽列 */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#BA9868] via-[#D8C49F] to-[#B59261] text-white shadow-2xl border-t border-white/20">
+      {/* 5. 電腦端專屬頁尾（md 以上顯示） */}
+      <footer className="hidden md:block bg-stone-900 text-stone-400 py-12 px-8 mt-20 border-t border-stone-800">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-[#7A1B28] flex items-center justify-center text-white font-serif font-bold text-sm">
+              S
+            </div>
+            <span className="font-serif tracking-widest text-white font-bold text-base">
+              SPORT CAFÉ HUB
+            </span>
+          </div>
+          <div className="flex items-center gap-8 text-xs text-stone-400 font-light">
+            <span>台北旗艦館：02-2500-0000</span>
+            <span>官方 LINE：@sportcafe</span>
+            <span>台日少棒交流基地（Sendai）</span>
+          </div>
+          <div className="text-xs text-stone-500 font-light">
+            © 2026 Sport Café. All rights reserved.
+          </div>
+        </div>
+      </footer>
+
+      {/* 6. 手機端專屬：香檳金吸頂底部導覽列（md 以上自動隱藏，絕不擋電腦畫面） */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-r from-[#BA9868] via-[#D8C49F] to-[#B59261] text-white shadow-2xl border-t border-white/20">
         <div className="max-w-md mx-auto h-14 flex items-center divide-x divide-white/25">
-          {/* 按鈕 1：LINE 線上客服 */}
           <a
             href="https://line.me"
             target="_blank"
@@ -298,7 +358,6 @@ async function LuxuryWBeautyView() {
             </div>
           </a>
 
-          {/* 按鈕 2：諮詢專線 */}
           <a
             href="tel:0225000000"
             className="flex-1 flex items-center justify-center gap-1.5 py-1 px-1 text-center active:opacity-75 transition"
@@ -313,7 +372,6 @@ async function LuxuryWBeautyView() {
             </div>
           </a>
 
-          {/* 按鈕 3：粉專客服 */}
           <a
             href="https://facebook.com"
             target="_blank"
@@ -330,7 +388,6 @@ async function LuxuryWBeautyView() {
             </div>
           </a>
 
-          {/* 按鈕 4：仙台 / 微信客服 */}
           <a
             href="https://weixin.qq.com"
             target="_blank"
@@ -361,7 +418,7 @@ export default function Home() {
         </div>
       }
     >
-      <LuxuryWBeautyView />
+      <LuxuryResponsiveView />
     </Suspense>
   );
 }
