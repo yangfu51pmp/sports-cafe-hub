@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "redis";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const REDIS_URL =
   process.env.REDIS_URL ||
@@ -46,14 +45,14 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 備援規則（萬一無 API Key 或 AI 逾時，直接正規處理「把公告改為」）
-      let cleanText = userText.replace(/^[「『"]|[」』"]$/g, "");
+      // 2. 第一重保險：直接匹配關鍵字（免經 AI，速度最快、穩定度最高）
+      const cleanText = userText.replace(/^[「『"“]|["”』」]$/g, "");
       if (cleanText.includes("公告") && (cleanText.includes("改為") || cleanText.includes("換成") || cleanText.includes("恢復成"))) {
         let newNotice = cleanText
           .replace(/.*?(改為|換成|恢復成)[：:\s]*/, "")
           .trim();
         if (cleanText.includes("恢復成歡迎光臨") || newNotice === "歡迎光臨") {
-          newNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備空間。";
+          newNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備借測空間。";
         }
 
         if (newNotice && REDIS_URL) {
@@ -70,72 +69,77 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. 使用 Gemini AI 進行多意圖語意解析
-      if (!GEMINI_API_KEY) {
-        await replyLine(
-          replyToken,
-          "【系統提醒】後台尚未設定 GEMINI_API_KEY，但您可以使用基本指令：\n「把公告改為：您的內容」"
-        );
-        continue;
+      // 3. 第二重保險：透過原生 REST API 呼叫 Gemini AI（無須安裝任何套件）
+      let parsedNotice: string | null = null;
+      let parsedTitle: string | null = null;
+
+      if (GEMINI_API_KEY) {
+        try {
+          const prompt = `你是一個網站後台管理助理。請根據管理員口語指令，提取要修改的欄位並回傳 JSON。
+欄位說明：
+- announcement: 公告文字 (若未提及則為 null)
+- title: 網站主標題 (若未提及則為 null)
+
+指令: "${userText}"
+
+僅回傳純 JSON 格式，不要包含任何 markdown 或解說文字，例如:
+{"announcement": "今日下午休館", "title": null}`;
+
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+              }),
+            }
+          );
+
+          const aiData = await res.json();
+          const rawText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+          const parsed = JSON.parse(cleanJson);
+          parsedNotice = parsed.announcement || null;
+          parsedTitle = parsed.title || null;
+        } catch (aiErr) {
+          console.error("Gemini parse failed:", aiErr);
+        }
       }
 
-      const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      const prompt = `你是一個網站內容管理助理。請根據用戶的管理指令，輸出 JSON 格式。
-目前支援欄位：
-- announcement (公告內容，字串)
-- title (首頁標題，字串)
-
-用戶訊息: "${userText}"
-
-請僅回傳 JSON 格式，不要包含額外的說明文字或 Markdown 標籤，例如：
-{"announcement": "今日正常營業", "title": null}`;
-
-      const aiRes = await model.generateContent(prompt);
-      const rawText = aiRes.response.text();
-      // 清除可能包覆的 markdown 標籤
-      const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-
-      let parsed: { announcement?: string | null; title?: string | null } = {};
-      try {
-        parsed = JSON.parse(cleanJson);
-      } catch (parseErr) {
-        console.error("JSON parse failed:", rawText);
-      }
-
-      if (!parsed.announcement && !parsed.title) {
-        await replyLine(
-          replyToken,
-          "【Sport Cafe 助手】未能識別您的修改內容，您可以直接說：\n• 「把公告改為：今日下午店休」\n• 「把標題加上（台北旗艦店）」"
-        );
-        continue;
-      }
-
-      // 寫入 Redis
-      if (REDIS_URL) {
+      // 4. 寫入 Redis
+      if ((parsedNotice || parsedTitle) && REDIS_URL) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
 
-        let replyMsg = "【Sport Cafe 助手】更新成功：\n";
-        if (parsed.announcement) {
-          await client.set("site_announcement", parsed.announcement);
-          replyMsg += `• 公告已改為：「${parsed.announcement}」\n`;
+        let replyMsg = "【Sport Cafe 管理助手】更新成功：\n";
+        if (parsedNotice) {
+          await client.set("site_announcement", parsedNotice);
+          replyMsg += `• 公告已改為：「${parsedNotice}」\n`;
         }
-        if (parsed.title) {
-          await client.set("site_title", parsed.title);
-          replyMsg += `• 標題已改為：「${parsed.title}」\n`;
+        if (parsedTitle) {
+          await client.set("site_title", parsedTitle);
+          replyMsg += `• 標題已改為：「${parsedTitle}」\n`;
         }
         await client.quit();
 
-        replyMsg += "\n官網已即時更新：\nhttps://sports-cafe-hub.vercel.app";
+        replyMsg += "\n官網已同步更新：\nhttps://sports-cafe-hub.vercel.app";
         await replyLine(replyToken, replyMsg);
+        continue;
       }
+
+      // 5. 無法辨識時的友善回覆
+      await replyLine(
+        replyToken,
+        "【Sport Cafe 管理助手】\n已確認管理員身分！您可以直接用日常口語交代我：\n\n• 把公告改為：今日下午 2 點營業\n• 把公告恢復成歡迎光臨\n• 把標題加上（仙台交流店）"
+      );
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("LINE webhook error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    const err = error as Error;
+    console.error("LINE webhook error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
