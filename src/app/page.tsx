@@ -55,7 +55,7 @@ async function LuxuryResponsiveView() {
       {config.announcement && (
         <aside className="bg-[#7A1B28] text-white px-4 py-2.5 text-center text-xs md:text-sm tracking-wider font-light flex items-center justify-center gap-2 shadow-sm">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-ping" />
-          <span className="font-medium whitespace-nowrap animate-pulse">
+          <span className="font-medium inline-block animate-bounce max-w-[280px] md:max-w-2xl">
             {config.announcement}
           </span>
           {config.announcement_url && (
