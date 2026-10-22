@@ -1,6 +1,5 @@
 import { createClient } from "redis";
 
-// 宣告為動態路由，避開 Next.js 15 靜態預渲染衝突
 export const instant = false;
 
 const REDIS_URL =
@@ -9,7 +8,6 @@ const REDIS_URL =
   process.env.KV_URL ||
   "";
 
-// 預設品牌基礎配置
 const defaultConfig = {
   title: "SPORT CAFÉ",
   announcement: "民安少棒・巨人盃賽事直播中！",
@@ -19,12 +17,17 @@ const defaultConfig = {
   btnStyle: "bg-[#06C755] hover:bg-[#05b34c] md:bg-[#06C755] md:hover:bg-[#05b34c]",
 };
 
-// 讀取 Redis 即時動態配置
 async function getSiteConfig() {
-  if (!REDIS_URL) return defaultConfig;
+  // 關鍵保護：打包階段（npm run build）直接回傳預設值，19 秒極速完成建置不卡死
+  if (process.env.NEXT_PHASE === "phase-production-build" || !REDIS_URL) {
+    return defaultConfig;
+  }
 
   try {
-    const client = createClient({ url: REDIS_URL });
+    const client = createClient({
+      url: REDIS_URL,
+      socket: { connectTimeout: 3000 },
+    });
     await client.connect();
     const [title, announcement, url, heroImg, bannerAnim, btnStyle] = await Promise.all([
       client.get("site_title"),
@@ -54,10 +57,24 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 flex flex-col font-sans">
-      {/* 頂部動態公告欄（支援上下跳動、呼吸閃爍、跑馬燈） */}
-      <aside className="bg-amber-950/80 border-b border-amber-900/50 text-amber-200 text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
-        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block" />
+      {/* 左右滑動跑馬燈原生動畫 */}
+      <style>{`
+        @keyframes marqueeSlide {
+          0% { transform: translateX(60%); }
+          50% { transform: translateX(-60%); }
+          100% { transform: translateX(60%); }
+        }
+        .marquee-slide {
+          display: inline-block;
+          white-space: nowrap;
+          animation: marqueeSlide 10s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* 頂部動態公告欄 */}
+      <aside className="bg-amber-950/80 border-b border-amber-900/50 text-amber-200 text-xs sm:text-sm py-2.5 px-4 text-center overflow-hidden">
+        <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block shrink-0" />
           <a
             href={config.announcementUrl}
             target="_blank"
