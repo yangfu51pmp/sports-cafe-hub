@@ -38,17 +38,36 @@ export async function POST(req: NextRequest) {
       const userText = event.message.text.trim();
       const replyToken = event.replyToken;
 
-      // 1. 白名單身分比對（支援逗號隔開的多組 ID）
+      // 1. 白名單管理員驗證
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
         await replyLine(replyToken, "【Sport Cafe】抱歉，您尚未獲得管理員授權。");
         continue;
       }
 
-      // 2. 第一重保險：常見語義直接匹配（免經 AI，0 秒生效）
+      // 2. 第一重保險：偵測網址（支援 YouTube 或任何連結加入公告）
+      const urlMatch = userText.match(/https?:\/\/[^\s]+/i);
       const cleanText = userText.replace(/^[「『"“]|["”』」]$/g, "");
-      let directNotice: string | null = null;
 
+      if (urlMatch && (cleanText.includes("連結") || cleanText.includes("公告") || cleanText.includes("網址") || cleanText.includes("直播"))) {
+        const targetUrl = urlMatch[0];
+
+        if (REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.set("site_announcement_url", targetUrl);
+          await client.quit();
+
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功將公告連結綁定為：\n${targetUrl}\n\n現在點擊官網頂部公告即可直接跳轉！\nhttps://sports-cafe-hub.vercel.app`
+          );
+          continue;
+        }
+      }
+
+      // 3. 一般文字公告匹配
+      let directNotice: string | null = null;
       if (cleanText.includes("公告") && (cleanText.includes("改為") || cleanText.includes("換成") || cleanText.includes("恢復成"))) {
         directNotice = cleanText.replace(/.*?(改為|換成|恢復成)[：:\s]*/, "").trim();
         if (cleanText.includes("恢復成歡迎光臨") || directNotice === "歡迎光臨") {
@@ -71,21 +90,23 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 3. 第二重保險：透過原生 REST API 呼叫 Gemini AI 彈性理解
+      // 4. 第二重保險：Gemini AI 自然語意解析
       let parsedNotice: string | null = null;
       let parsedTitle: string | null = null;
+      let parsedUrl: string | null = null;
 
       if (GEMINI_API_KEY) {
         try {
           const prompt = `你是一個網站後台管理助理。請根據管理員口語指令，提取要修改的欄位並回傳 JSON。
 欄位說明：
-- announcement: 任何關於門市臨時公告、營業時間變更、活動宣傳、店休通知等訊息，皆整理為簡潔的公告文字。若未提及則為 null。
-- title: 網站首頁的大標題文字。若未提及則為 null。
+- announcement: 公告或直播宣傳文字。若未提及則為 null。
+- announcement_url: 包含的網址 (例如 YouTube 直播或活動連結)。若無則為 null。
+- title: 首頁主標題。若未提及則為 null。
 
 管理員輸入: "${userText}"
 
 僅回傳純 JSON 格式，不要包含任何 markdown 或解說文字，例如:
-{"announcement": "今日門市營業時間調整為 14:00 開始", "title": null}`;
+{"announcement": "民安少棒賽事直播中", "announcement_url": "https://youtube.com/...", "title": null}`;
 
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -105,13 +126,14 @@ export async function POST(req: NextRequest) {
           const parsed = JSON.parse(cleanJson);
           parsedNotice = parsed.announcement || null;
           parsedTitle = parsed.title || null;
+          parsedUrl = parsed.announcement_url || null;
         } catch (aiErr) {
           console.error("Gemini parse failed:", aiErr);
         }
       }
 
-      // 4. 寫入 Redis
-      if ((parsedNotice || parsedTitle) && REDIS_URL) {
+      // 寫入 Redis
+      if ((parsedNotice || parsedTitle || parsedUrl) && REDIS_URL) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
 
@@ -119,6 +141,10 @@ export async function POST(req: NextRequest) {
         if (parsedNotice) {
           await client.set("site_announcement", parsedNotice);
           replyMsg += `• 公告已改為：「${parsedNotice}」\n`;
+        }
+        if (parsedUrl) {
+          await client.set("site_announcement_url", parsedUrl);
+          replyMsg += `• 公告連結已設定為：${parsedUrl}\n`;
         }
         if (parsedTitle) {
           await client.set("site_title", parsedTitle);
@@ -131,10 +157,10 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 無法辨識時的友善回覆
+      // 5. 引導回覆
       await replyLine(
         replyToken,
-        "【Sport Cafe 管理助手】\n已確認管理員身分！您可以直接交代我：\n\n• 門市營業時間更改到下午14:00\n• 把公告改為：今日下午 2 點營業\n• 把公告恢復成歡迎光臨"
+        "【Sport Cafe 管理助手】\n已確認管理員身分！您可以交代我：\n\n• 公告加入連結：https://...\n• 把公告改為：今日下午 2 點營業\n• 把公告恢復成歡迎光臨"
       );
     }
 
