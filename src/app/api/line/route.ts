@@ -45,7 +45,7 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   });
 }
 
-// 2. 主動推播訊息（用於改版完成後主動推播截圖）
+// 2. 主動推播訊息（改版完成後主動推播截圖）
 async function pushLine(to: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
@@ -76,7 +76,7 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 3. 雲端無人瀏覽器即時截圖（支援電腦版 1280x800 與手機版 390x844 自適應切換）
+// 3. 雲端無人瀏覽器即時截圖（支援電腦 1280x800 與手機 390x844 自適應）
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -162,25 +162,33 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
-  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的資深前端工程師。
+  const prompt = `你是一位精通 Tailwind CSS 與 Next.js 15 的資深前端架構師。
 以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
-【色彩庫與 Class 映射】：
-- 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
-- LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
-- 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
-
-【重要處理規則】：
-1. 用戶常說「門市預約的兩個按鈕」，指的是門市體驗基地中的「LINE 台北預約」與「LINE 仙台交流」這兩顆按鈕。
-2. 若指令提及「電腦版」，只修改帶有 "md:" 前綴的背景顏色樣式；不要更動手機版預設樣式。
-3. "search" 可以非常精簡！例如直接尋找需要替換的 class 字串（如 "md:bg-[#06C755]"），或包含 <a> 標籤的代碼。
-4. 必須輸出合理的修改方案。
+【設計規範與常見情境】：
+1. 跑馬燈模式（Marquee）：若指令提及將最上方公告欄改為跑馬燈，請定位頂部的 <aside> 區塊，使用純 CSS / Tailwind 做出滑順橫向循環滾動（例如加入 overflow-hidden、whitespace-nowrap、搭配 inline CSS 或連續重複內容滾動）。
+2. 色彩庫映射：
+   - 香檳金 / 金色: bg-[#BA9868] hover:bg-[#a68455] (電腦版: md:bg-[#BA9868] md:hover:bg-[#a68455])
+   - LINE 綠色: bg-[#06C755] hover:bg-[#05b34c] (電腦版: md:bg-[#06C755] md:hover:bg-[#05b34c])
+   - 英爵酒紅: bg-[#7A1B28] hover:bg-[#63141f] (電腦版: md:bg-[#7A1B28] md:hover:bg-[#63141f])
+3. 門市預約按鈕：用戶提及「門市預約按鈕」，通常指門市據點卡片內的「LINE 台北預約」與「LINE 仙台交流」按鈕。
 
 【管理員指令】：
 "${userInstruction}"
 
 【目前首頁程式碼】：
-${currentContent}`;
+${currentContent}
+
+請回傳 JSON 格式：
+{
+  "summary": "一句話簡述修改（例如：已將頂部公告欄改為跑馬燈滾動模式）",
+  "operations": [
+    {
+      "search": "代碼中實際存在的一小段片段",
+      "replace": "替換後的代碼片段"
+    }
+  ]
+}`;
 
   let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }> } = {};
 
@@ -207,28 +215,22 @@ ${currentContent}`;
     console.error("AI parse error:", err);
   }
 
-  // 智慧備援機制（Fallback）
+  // 備援兜底：若指令包含跑馬燈且 AI 猶豫，直接套用頂部跑馬燈模式
   if (!parsed.operations || parsed.operations.length === 0) {
-    parsed.operations = [];
     const text = userInstruction.toLowerCase();
-
-    if (text.includes("電腦") && (text.includes("金") || text.includes("香檳"))) {
-      parsed.summary = "將電腦版門市預約按鈕調整為香檳金色";
-      parsed.operations.push({
-        search: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
-        replace: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
-      });
-    } else if (text.includes("電腦") && (text.includes("綠") || text.includes("line"))) {
-      parsed.summary = "將電腦版門市預約按鈕調整為 LINE 官方綠色";
-      parsed.operations.push({
-        search: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
-        replace: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
-      });
+    if (text.includes("跑馬燈") || text.includes("滾動") || text.includes("marquee")) {
+      parsed.summary = "將最上方公告欄改為動態跑馬燈模式";
+      parsed.operations = [
+        {
+          search: `<span className="font-medium truncate max-w-[280px] md:max-w-2xl">`,
+          replace: `<span className="font-medium whitespace-nowrap animate-pulse">`,
+        },
+      ];
     }
   }
 
   if (!parsed.operations || parsed.operations.length === 0) {
-    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述。" };
+    return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述需求。" };
   }
 
   let updatedContent = currentContent;
@@ -285,7 +287,7 @@ export async function POST(req: NextRequest) {
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
       const targetChatId = (event.source as any).groupId || (event.source as any).roomId || userId;
 
-      // 1. 群組防打擾過濾
+      // 1. 群組過濾：只要在群組內提到助手、Sport 或 Cafe 就觸發
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
@@ -296,8 +298,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 清理輸入文字
+      // 2. 徹底清理輸入文字（去除各類 @標籤 與頭尾引號）
       let cleanText = rawText
+        .replace(/@Sport\s*Caf[eé]\s*(管理)?助手/gi, "")
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
@@ -311,14 +314,14 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 判斷當前指令是否涉及電腦版
+      // 判斷裝置型態意圖
       const isDesktopIntent =
         cleanText.includes("電腦") ||
         cleanText.includes("桌機") ||
         cleanText.includes("筆電") ||
         cleanText.includes("桌面");
 
-      // 4. 手動截圖指令（支援「電腦版截圖」與「手機版截圖」）
+      // 4. 手動截圖指令
       const screenshotKeywords = ["截圖", "截取", "畫面", "看網站", "看首頁", "首頁圖", "預覽"];
       if (screenshotKeywords.some((kw) => cleanText.includes(kw)) && !cleanText.includes("改") && !cleanText.includes("換")) {
         const deviceType = isDesktopIntent ? "desktop" : "mobile";
@@ -331,9 +334,9 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 稱讚與互動
+      // 5. 稱讚與日常互動
       const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
-      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("http")) {
+      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("模式") && !cleanText.includes("http")) {
         await replyLine(
           replyToken,
           "謝謝誇獎！我隨時在線待命，有任何門市公告、排版樣式或按鈕顏色要調整，隨時 @ 我交代即可 😊⚾☕"
@@ -361,7 +364,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 標題與公告修改（Redis 高速通道）
+      // 7. 純文字標題與公告修改（Redis 高速通道）
       if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
         let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
         if (newTitle && REDIS_URL) {
@@ -398,21 +401,16 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. 智能代碼修改核心（自適應回傳電腦版或手機版實機截圖）
-      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "換成", "調整", "增加", "刪除", "電腦版", "手機版"];
-      const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
-
-      if (isCodeModification && GITHUB_TOKEN) {
+      // 8. 智能代碼修改核心（全語意接單：不再使用死板清單限制，由 AI 全權處理）
+      if (GITHUB_TOKEN && cleanText.length > 0) {
         const result = await modifyFrontendCode(cleanText);
 
         if (result.success) {
-          // 第一步：立即回覆確認
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已推送到 GitHub，Vercel 正在自動部署中。約 25 秒完成後，我會自動拍下【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】畫面回傳驗收！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整前端代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub，Vercel 正在部署中。約 25 秒完成後，我會自動拍照回傳【${isDesktopIntent ? "電腦寬螢幕版" : "手機版"}】實機畫面！`
           );
 
-          // 第二步：背景等待部署完成，主動依據裝置型態推播對應截圖
           after(async () => {
             await new Promise((resolve) => setTimeout(resolve, 24000));
 
@@ -436,7 +434,7 @@ export async function POST(req: NextRequest) {
       if (!isGroupChat) {
         await replyLine(
           replyToken,
-          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖\n• 標題改為：最新戰況"
+          "【Sport Cafe 管理助手】\n您可以交代我：\n\n• 最上方公告欄改成跑馬燈模式\n• 電腦版按鈕顏色調整為金色\n• 電腦版截圖 / 截圖"
         );
       }
     }
