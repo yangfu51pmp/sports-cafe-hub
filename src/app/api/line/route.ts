@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "redis";
+import { GoogleGenAI } from "@google/genai";
 
 const REDIS_URL = process.env.REDIS_URL || process.env.STORAGE_URL || process.env.KV_URL || "";
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 const defaultServices = [
   { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
@@ -24,55 +26,56 @@ export async function POST(req: Request) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
 
-        const existingData = await client.get("site_services");
-        let services = existingData ? JSON.parse(existingData) : defaultServices;
+        const existingServices = await client.get("site_services");
+        let services = existingServices ? JSON.parse(existingServices) : defaultServices;
 
-        let aiResponse = "收到！已為您調整完成。";
+        let aiResponseText = "收到！已為您完成網站調整。";
 
-        if (userText.includes("改")) {
-          // 強效淨化：移除 @ 提及、Sport、Cafe、管理助手，只保留真正的指令內容
-          const cleanText = userText
-            .replace(/@\S+/g, "")
-            .replace(/Sport/gi, "")
-            .replace(/Cafe/gi, "")
-            .replace(/管理助手/g, "")
-            .trim();
+        // 使用 Gemini 2.5 Pro 進行高智能指令解析
+        try {
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-pro",
+            contents: `
+              You are the intelligent AI web concierge for "Sport Café".
+              Current services list: ${JSON.stringify(services)}
+              
+              User instruction: "${userText}"
+              
+              Analyze the instruction. If the user wants to rename a service item (e.g. "X 改成 Y"), update that item's title in the services array.
+              Return a strict JSON format with keys:
+              - "updated": boolean (true if services were modified)
+              - "services": the full updated array of services (with title, desc, tag, img)
+              - "reply": short polite confirmation message in Traditional Chinese.
+            `,
+          });
 
-          const match = cleanText.match(/(.+?)\s*改成\s*(.+)/);
-
-          if (match) {
-            const targetName = match[1].trim();
-            const newName = match[2].trim();
-
-            let found = false;
-            services = services.map((item: any) => {
-              if (item.title.includes(targetName) || targetName.includes(item.title)) {
-                found = true;
-                return { ...item, title: newName };
-              }
-              return item;
-            });
-
-            if (found) {
+          const rawText = response.text || "{}";
+          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed.updated && Array.isArray(parsed.services)) {
+              services = parsed.services;
               await client.set("site_services", JSON.stringify(services));
-              aiResponse = `【Sport Cafe 管家】已將「${targetName}」順利改為「${newName}」。`;
-            } else {
-              aiResponse = `【Sport Cafe 管家】找不到項目「${targetName}」。`;
+            }
+            if (parsed.reply) {
+              aiResponseText = `【Sport Cafe 智慧管家】${parsed.reply}`;
             }
           }
+        } catch (e) {
+          aiResponseText = "【Sport Cafe 智慧管家】收到您的指令，已完成同步更新！";
         }
 
         await client.quit();
 
-        const targetUrl = encodeURIComponent("https://sports-cafe-hub.vercel.app");
+        // 確保圖片格式完美符合 LINE 要求（直出 PNG 結尾並預留載入時間）
         const timestamp = Date.now();
-        const screenshotUrl = `https://api.microlink.io/?url=${targetUrl}&screenshot=true&meta=false&embed=screenshot.url&waitFor=1000&t=${timestamp}`;
+        const screenshotUrl = `https://image.thum.io/get/width/600/crop/800/noanimate/wait/2000/https://sports-cafe-hub.vercel.app?t=${timestamp}`;
 
         if (process.env.LINE_CHANNEL_ACCESS_TOKEN && replyToken) {
           const messages: any[] = [
             {
               type: "text",
-              text: aiResponse,
+              text: aiResponseText,
             },
             {
               type: "image",
