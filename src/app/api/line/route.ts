@@ -69,12 +69,10 @@ async function captureWebsiteScreenshot(): Promise<string | null> {
 function applyFlexibleReplace(content: string, search: string, replace: string): { newContent: string; ok: boolean } {
   if (!search || !replace) return { newContent: content, ok: false };
 
-  // 1. 直接精準替換
   if (content.includes(search)) {
     return { newContent: content.replaceAll(search, replace), ok: true };
   }
 
-  // 2. 統一換行符替換
   const normC = content.replace(/\r\n/g, "\n");
   const normS = search.replace(/\r\n/g, "\n");
   const normR = replace.replace(/\r\n/g, "\n");
@@ -83,7 +81,6 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
     return { newContent: normC.replaceAll(normS, normR), ok: true };
   }
 
-  // 3. 忽略多餘空白正則替換
   try {
     const escaped = normS
       .trim()
@@ -126,7 +123,6 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
-  // 1. 呼叫 Gemini 進行語意分析與局部定位
   const prompt = `你是一位精通 Tailwind CSS 與 Next.js 的資深前端工程師。
 以下是 Sport Café 官網首頁檔案：src/app/page.tsx。
 
@@ -172,21 +168,17 @@ ${currentContent}`;
     console.error("AI parse error:", err);
   }
 
-  // 2. 智慧備援機制（Fallback）：若 AI 猶豫未回傳 operations，後台根據關鍵字直接兜底
   if (!parsed.operations || parsed.operations.length === 0) {
     parsed.operations = [];
     const text = userInstruction.toLowerCase();
 
-    // 情況 A：將電腦版按鈕改為金色
     if (text.includes("電腦") && (text.includes("金") || text.includes("香檳"))) {
       parsed.summary = "將電腦版門市預約按鈕調整為香檳金色";
       parsed.operations.push({
         search: "md:bg-[#06C755] md:hover:bg-[#05b34c]",
         replace: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
       });
-    }
-    // 情況 B：將電腦版按鈕改為 LINE 綠色
-    else if (text.includes("電腦") && (text.includes("綠") || text.includes("line"))) {
+    } else if (text.includes("電腦") && (text.includes("綠") || text.includes("line"))) {
       parsed.summary = "將電腦版門市預約按鈕調整為 LINE 官方綠色";
       parsed.operations.push({
         search: "md:bg-[#BA9868] md:hover:bg-[#a68455]",
@@ -199,7 +191,6 @@ ${currentContent}`;
     return { success: false, message: "AI 未能明確定位代碼，請嘗試更具體描述（例如：把電腦版據點預約按鈕換成金色）。" };
   }
 
-  // 3. 執行替換
   let updatedContent = currentContent;
   let appliedCount = 0;
 
@@ -216,7 +207,6 @@ ${currentContent}`;
     return { success: false, message: "代碼片段匹配未命中，請稍後重試。" };
   }
 
-  // 4. 將代碼 Commit 回 GitHub
   const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
   const putRes = await fetch(putUrl, {
     method: "PUT",
@@ -254,7 +244,6 @@ export async function POST(req: NextRequest) {
       const replyToken = event.replyToken;
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
 
-      // 1. 群組過濾
       const isCallingBot =
         rawText.includes("@Sport Cafe") ||
         rawText.includes("@Sport") ||
@@ -265,13 +254,11 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 清理輸入文字
       let cleanText = rawText
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
 
-      // 3. 身分白名單驗證
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
         if (!isGroupChat) {
@@ -292,14 +279,42 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 5. 稱讚與互動
-      const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
-      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("http")) {
-        await replyLine(
-          replyToken,
-          "謝謝誇獎！我隨時在線待命，有任何門市公告、排版樣式或按鈕顏色要調整，隨時 @ 我交代即可 😊⚾☕"
-        );
-        continue;
+      // 5. 標題與公告修改（Redis 高速通道）—— 必須放在最前面優先攔截！
+      if (cleanText.includes("標題改為") || cleanText.includes("標題換成") || cleanText.startsWith("標題")) {
+        let newTitle = cleanText.replace(/.*?標題(改為|換成|：|:)?/, "").trim();
+        if (!newTitle) newTitle = cleanText;
+        if (newTitle && REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.set("site_title", newTitle);
+          await client.quit();
+
+          const screenshot = await captureWebsiteScreenshot();
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功更新網站主標題：\n「${newTitle}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+            screenshot
+          );
+          continue;
+        }
+      }
+
+      if (cleanText.includes("公告改為") || cleanText.includes("公告換成")) {
+        let directNotice = cleanText.replace(/.*?公告(改為|換成)[：:\s]*/, "").trim();
+        if (directNotice && REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.set("site_announcement", directNotice);
+          await client.quit();
+
+          const screenshot = await captureWebsiteScreenshot();
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+            screenshot
+          );
+          continue;
+        }
       }
 
       // 6. 網址綁定公告（Redis 高速通道）
@@ -322,45 +337,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 標題與公告修改（Redis 高速通道）
-      if (cleanText.startsWith("標題改為") || cleanText.startsWith("標題換成")) {
-        let newTitle = cleanText.replace(/^標題(改為|換成)[：:\s]*/, "").trim();
-        if (newTitle && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_title", newTitle);
-          await client.quit();
-
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新網站主標題：\n「${newTitle}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      if (cleanText.startsWith("公告改為") || cleanText.startsWith("公告換成")) {
-        let directNotice = cleanText.replace(/^公告(改為|換成)[：:\s]*/, "").trim();
-        if (directNotice && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_announcement", directNotice);
-          await client.quit();
-
-          const screenshot = await captureWebsiteScreenshot();
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-            screenshot
-          );
-          continue;
-        }
-      }
-
-      // 8. 智能代碼修改核心（樣式、顏色、排版、按鈕調整）
-      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "換成", "調整", "增加", "刪除", "電腦版", "手機版"];
+      // 7. 智能代碼修改核心（樣式、顏色、排版、按鈕調整）
+      const codeKeywords = ["顏色", "排版", "按鈕", "版面", "設計", "字體", "背景", "風格", "調整", "增加", "刪除", "電腦版", "手機版"];
       const isCodeModification = codeKeywords.some((kw) => cleanText.includes(kw));
 
       if (isCodeModification && GITHUB_TOKEN) {
@@ -376,6 +354,16 @@ export async function POST(req: NextRequest) {
           await replyLine(replyToken, `【Sport Cafe 管理助手】代碼調整未完成：${result.message}`);
           continue;
         }
+      }
+
+      // 8. 稱讚與互動
+      const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒", "喜歡你"];
+      if (praiseKeywords.some((kw) => cleanText.includes(kw)) && cleanText.length < 15 && !cleanText.includes("改") && !cleanText.includes("http")) {
+        await replyLine(
+          replyToken,
+          "謝謝誇獎！我隨時在線待命，有任何門市公告、排版樣式或按鈕顏色要調整，隨時 @ 我交代即可 😊⚾☕"
+        );
+        continue;
       }
 
       // 9. 一般私聊引導
