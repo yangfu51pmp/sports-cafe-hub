@@ -85,11 +85,10 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   }).catch(() => {});
 }
 
-// 主動推播截圖（分兩段發送，確保即使圖片稍慢也一定會收到截圖）
+// 主動推播截圖（分兩段發送，確保圖文必達）
 async function pushLine(to: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN || !to) return;
 
-  // 1. 先推播通知文字
   await fetch("https://api.line.me/v2/bot/message/push", {
     method: "POST",
     headers: {
@@ -102,7 +101,6 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
     }),
   }).catch(() => {});
 
-  // 2. 若有截圖，緊接著單獨推播圖片訊息
   if (imageUrl) {
     await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
@@ -118,7 +116,7 @@ async function pushLine(to: string, text: string, imageUrl?: string | null) {
   }
 }
 
-// 雲端截圖（放寬至 9.5 秒充足渲染時間）
+// 雲端截圖（9.5 秒充足渲染時間）
 async function captureWebsiteScreenshot(device: "mobile" | "desktop" = "mobile"): Promise<string | null> {
   try {
     const isDesktop = device === "desktop";
@@ -186,22 +184,25 @@ async function modifyFrontendCode(userInstruction: string, chatHistory: string):
   const currentContent = Buffer.from(fileData.content, "base64").toString("utf-8");
   const fileSha = fileData.sha;
 
-  const prompt = `你是一位資深 Next.js 前端架構師與 Sport Café 智能品牌管家。
+  const prompt = `你是一位資深 Next.js 15 與 Tailwind CSS 前端架構師。
 請根據管理員口語指令，解讀審美意圖並修改首頁檔案：src/app/page.tsx。
 
 【對話脈絡】：
 ${chatHistory || "無"}
 
-【精選圖庫庫】：
-1. 職人手沖滴漏（精品工藝感、另一種咖啡呈現）: "${CURATED_IMAGES.pourover_craft}"
-2. 原版經典美式咖啡（白瓷杯、俯瞰黑咖啡特寫）: "${CURATED_IMAGES.original_americano}"
-3. 質感透亮冰美式咖啡: "${CURATED_IMAGES.iced_americano}"
-4. 空間裝潢照: "${CURATED_IMAGES.cafe_space}"
+【重要組件與動效映射知識庫】：
+1. 「跑馬燈 / 公告欄 / 最上方欄位」：在代碼中對應的是最頂部的 <aside> 橫幅公告欄，內部結構通常為：
+   \`<span className="font-medium ...">\`
+   - 若指令要求「上下跳動」：請將該 span 的 class 加入 \`inline-block animate-bounce\`！
+   - 若指令要求「跑馬燈 / 滾動」：請將該 span 的 class 加入 \`whitespace-nowrap animate-pulse\` 或滑動動態！
+2. 「咖啡圖 / 背景圖」：
+   - 職人手沖滴漏: "${CURATED_IMAGES.pourover_craft}"
+   - 原版經典美式咖啡: "${CURATED_IMAGES.original_americano}"
+   - 質感透亮冰美式: "${CURATED_IMAGES.iced_americano}"
 
-【重要處理原則】：
-1. 用戶若使用疑問句（例如「可以換...嗎？」、「能不能...」），請直接視為【肯定執行指令】，立刻進行更換！
-2. 若用戶提及「另一種方式呈現精品咖啡」、「精品咖啡的感覺」，請選用【職人手沖滴漏】或【質感透亮冰美式】，替換首頁 Hero 的 backgroundImage！
-3. 必須給出確切的替換代碼。
+【核心規則】：
+- 用戶說「更改跑馬燈形式」或「跑馬燈改成上下跳動」，就是在要求修改頂部公告欄的動畫效果！
+- 嚴禁回傳空的 operations！必須大膽給出精準的修改方案。
 
 【管理員指令】：
 "${userInstruction}"
@@ -232,14 +233,32 @@ ${currentContent}`;
     parsed = JSON.parse(rawJson);
   } catch (err) {}
 
-  // 強大備援兜底
+  // 智慧備援兜底（100% 確保跑馬燈與換圖皆可命中）
   if (!parsed.operations || parsed.operations.length === 0) {
     parsed.operations = [];
     const text = userInstruction.toLowerCase();
 
-    if (text.includes("咖啡") || text.includes("圖") || text.includes("照") || text.includes("呈現")) {
-      let targetImg = CURATED_IMAGES.pourover_craft;
+    // 跑馬燈 / 動畫效果兜底
+    if (text.includes("跑馬燈") || text.includes("跳動") || text.includes("公告") || text.includes("形式")) {
+      const isBounce = text.includes("跳動") || text.includes("跳");
+      parsed.summary = isBounce ? "將最上方公告欄改為輕快上下跳動動效" : "將最上方公告欄改為動態動效模式";
 
+      // 匹配公告文字所在的 span 標籤
+      const spanMatch = currentContent.match(/<span className="font-medium[^"]*">/);
+      if (spanMatch) {
+        const newClass = isBounce
+          ? `<span className="font-medium inline-block animate-bounce max-w-[280px] md:max-w-2xl">`
+          : `<span className="font-medium inline-block whitespace-nowrap animate-pulse max-w-[280px] md:max-w-2xl">`;
+
+        parsed.operations.push({
+          search: spanMatch[0],
+          replace: newClass,
+        });
+      }
+    }
+    // 咖啡圖兜底
+    else if (text.includes("咖啡") || text.includes("圖") || text.includes("照") || text.includes("呈現")) {
+      let targetImg = CURATED_IMAGES.pourover_craft;
       if (text.includes("最初") || text.includes("原本") || text.includes("美式")) {
         targetImg = CURATED_IMAGES.original_americano;
       } else if (text.includes("冰")) {
@@ -248,7 +267,7 @@ ${currentContent}`;
 
       const bgMatch = currentContent.match(/backgroundImage:\s*`url\('(https:\/\/[^']+)'\)`/);
       if (bgMatch) {
-        parsed.summary = "更換為職人手沖精品咖啡特寫視覺";
+        parsed.summary = "更換首頁背景大圖視覺";
         parsed.operations.push({
           search: bgMatch[0],
           replace: `backgroundImage: \`url('${targetImg}')\``,
@@ -367,12 +386,9 @@ export async function POST(req: NextRequest) {
           );
 
           after(async () => {
-            // 等待 Vercel 部署完畢
             await new Promise((resolve) => setTimeout(resolve, 20000));
-            // 抓取截圖（已調高至 9.5 秒充足時間）
             const screenshot = await captureWebsiteScreenshot(isDesktopIntent ? "desktop" : "mobile");
 
-            // 雙段推播：文字與截圖分開送，絕不漏接
             await pushLine(
               targetChatId,
               `【Sport Cafe AI 工程師】🎉\n${isDesktopIntent ? "電腦版" : "手機版"}最新改版已成功部署上線！\n實機截圖回報如下：\nhttps://sports-cafe-hub.vercel.app`,
