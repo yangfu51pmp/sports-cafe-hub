@@ -8,7 +8,7 @@ const REDIS_URL =
   process.env.KV_URL ||
   "";
 
-// 預設配置（完美復刻英爵醫美奢華視覺與 Sport Café 內容）
+// 預設配置
 const defaultConfig = {
   title: "SPORT CAFÉ",
   announcement: "民安少棒・巨人盃賽事直播中！",
@@ -56,8 +56,8 @@ export default async function HomePage() {
   const config = await getSiteConfig();
 
   return (
-    <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans">
-      {/* 跑馬燈/動效 CSS */}
+    <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative">
+      {/* 跑馬燈動畫 CSS */}
       <style>{`
         @keyframes marqueeSlide {
           0% { transform: translateX(45%); }
@@ -71,7 +71,7 @@ export default async function HomePage() {
         }
       `}</style>
 
-      {/* 1. 頂部酒紅動態公告欄（英爵風格） */}
+      {/* 1. 頂部酒紅動態公告欄 */}
       <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
@@ -91,7 +91,6 @@ export default async function HomePage() {
 
       {/* 2. 英爵風格頂級導覽列 */}
       <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
-        {/* 品牌標誌 */}
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-base shadow-sm">
             S
@@ -101,7 +100,6 @@ export default async function HomePage() {
           </span>
         </div>
 
-        {/* 桌面導覽連結（完全對齊英爵選單結構） */}
         <nav className="hidden lg:flex items-center gap-7 text-[13px] font-medium text-stone-700 tracking-wider">
           <a href="#about" className="hover:text-[#7A1B28] transition">關於本所</a>
           <a href="#services" className="hover:text-[#7A1B28] transition">服務項目</a>
@@ -113,7 +111,6 @@ export default async function HomePage() {
           <a href="#contact" className="hover:text-[#7A1B28] transition">線上客服</a>
         </nav>
 
-        {/* 右側搜尋與綠色 LINE 預約按鈕 */}
         <div className="flex items-center gap-5">
           <button aria-label="搜尋" className="text-stone-700 hover:text-[#7A1B28] transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -136,7 +133,7 @@ export default async function HomePage() {
         </div>
       </header>
 
-      {/* 3. Hero 大器主視覺（背景圖由管家即時控制） */}
+      {/* 3. Hero 主視覺 */}
       <main className="flex-1">
         <section
           className="relative h-[520px] sm:h-[600px] flex flex-col justify-end bg-cover bg-center transition-all duration-700"
@@ -162,24 +159,13 @@ export default async function HomePage() {
                 rel="noopener noreferrer"
                 className="px-8 py-3 rounded-full bg-white text-stone-900 text-xs font-bold tracking-wider hover:bg-stone-100 transition shadow-lg flex items-center gap-2"
               >
-                <span>了解療程 / 專案 ➔</span>
+                <span>了解專案 ➔</span>
               </a>
-              <div className="hidden sm:flex items-center gap-3 text-white/80 text-xs tracking-widest">
-                <span className="cursor-pointer hover:text-white">↼ Prev</span>
-                <div className="flex items-center gap-2">
-                  <span className="w-3.5 h-3.5 rounded-full border border-white flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                  </span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/40" />
-                </div>
-                <span className="cursor-pointer hover:text-white">Next ⇀</span>
-              </div>
             </div>
           </div>
         </section>
 
-        {/* 4. 英爵風格標題與特色服務區塊 */}
+        {/* 4. 服務項目區塊 */}
         <section className="max-w-7xl mx-auto px-8 pt-16 pb-12">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-wide text-[#7A1B28] mb-2">
@@ -195,9 +181,6 @@ export default async function HomePage() {
               { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
               { title: "專業裝備借測", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
               { title: "機能能量飲品", desc: "為運動員與品味人士特調的機能補給。", tag: "ENERGY", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
-              { title: "仙台草野塾連線", desc: "台日少棒交流與專業訓練情報交流。", tag: "SENDAI", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
-              { title: "數據分析空間", desc: "結合現代數據與科學化訓練檢視。", tag: "ANALYTICS", img: "https://images.unsplash.com/photo-1554118811-1e0d58224f24?q=80&w=800&auto=format&fit=crop" },
-              { title: "VIP 專屬預約", desc: "私密預約時段，享受無干擾的尊榮體驗。", tag: "VIP", img: "https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=800&auto=format&fit=crop" },
             ].map((item, idx) => (
               <div key={idx} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
                 <div className="h-48 overflow-hidden relative">
@@ -211,9 +194,7 @@ export default async function HomePage() {
                     <h3 className="text-lg font-bold text-stone-900 mb-2">{item.title}</h3>
                     <p className="text-xs text-stone-500 leading-relaxed">{item.desc}</p>
                   </div>
-                  <div className="mt-6 flex items-center text-xs font-bold text-[#7A1B28] group-hover:translate-x-1 transition">
-                    了解更多 ➔
-                  </div>
+                  <div className="mt-6 flex items-center text-xs font-bold text-[#7A1B28]">了解更多 ➔</div>
                 </div>
               </div>
             ))}
@@ -221,16 +202,31 @@ export default async function HomePage() {
         </section>
       </main>
 
-      {/* 5. 右下角英爵風格浮動客服圓球 */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <div className="w-14 h-14 rounded-full bg-[#7A1B28] text-white shadow-2xl flex items-center justify-center cursor-pointer hover:scale-105 transition animate-pulse">
+      {/* 5. 英爵同款右下角互動懸浮客服選單 */}
+      <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3">
+        {/* 提示對話氣泡框 */}
+        <div className="bg-white/95 backdrop-blur border border-stone-200 rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3 text-xs max-w-[240px]">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+          <span className="text-stone-700 leading-snug">
+            <strong className="text-[#7A1B28]">LINE 預約</strong> · 或點我來電諮詢詢都可以哦！
+          </span>
+        </div>
+
+        {/* 懸浮紅酒色按鈕 */}
+        <a
+          href="https://line.me"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="線上客服與預約"
+          className="w-14 h-14 rounded-full bg-[#7A1B28] text-white shadow-2xl flex items-center justify-center hover:scale-105 transition shrink-0 group relative"
+        >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
-        </div>
+        </a>
       </div>
 
-      {/* 6. 英爵風格精緻 Footer 底部版權 */}
+      {/* 6. Footer */}
       <footer className="bg-[#EFEAE4] border-t border-stone-300 text-stone-700 py-12 px-8 mt-16">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
@@ -243,7 +239,7 @@ export default async function HomePage() {
               </span>
             </div>
             <p className="text-xs text-stone-500 leading-relaxed">
-              結合日式手沖工藝與專業運動設備借測的頂級複合空間，為您打造極致品味體驗。
+              結合日式手沖工藝與專業運動設備借測的頂級複合空間。
             </p>
           </div>
           <div>
@@ -252,9 +248,8 @@ export default async function HomePage() {
             <p className="text-xs text-stone-500">電話：02-2700-0000</p>
           </div>
           <div>
-            <div className="font-bold text-stone-900 text-sm mb-3  ">仙台交流據點</div>
+            <div className="font-bold text-stone-900 text-sm mb-3">仙台交流據點</div>
             <p className="text-xs text-stone-600 mb-1">日本宮城縣仙台市草野塾</p>
-            <p className="text-xs text-stone-500">台日少棒聯線交流</p>
           </div>
           <div>
             <div className="font-bold text-stone-900 text-sm mb-3">快速預約</div>
