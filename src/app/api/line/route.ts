@@ -38,7 +38,7 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
   });
 }
 
-// 雲端無人瀏覽器即時截圖輔助函式
+// 雲端無人瀏覽器即時截圖
 async function captureWebsiteScreenshot(): Promise<string | null> {
   try {
     const targetUrl = `https://sports-cafe-hub.vercel.app?preview_key=cafe888&t=${Date.now()}`;
@@ -47,7 +47,7 @@ async function captureWebsiteScreenshot(): Promise<string | null> {
     )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=844`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 6500); // 6.5秒超時防護
+    const timer = setTimeout(() => controller.abort(), 6500);
 
     const res = await fetch(screenshotApi, { signal: controller.signal });
     clearTimeout(timer);
@@ -74,24 +74,24 @@ export async function POST(req: NextRequest) {
       const replyToken = event.replyToken;
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
 
-      // 1. 群組過濾：若 @ 其他人閒聊，機器人保持沉默
-      if (
-        rawText.startsWith("@") &&
-        !rawText.includes("助手") &&
-        !rawText.includes("Sport") &&
-        !rawText.includes("cafe") &&
-        !rawText.includes("Caf")
-      ) {
+      // 1. 群組過濾：在群組內「只有被 @ 或明確叫助手」時才動作，其餘一律徹底靜音
+      const isCallingBot =
+        rawText.includes("@Sport Cafe") ||
+        rawText.includes("@Sport") ||
+        rawText.includes("助手") ||
+        rawText.toLowerCase().includes("cafe");
+
+      if (isGroupChat && !isCallingBot) {
         continue;
       }
 
-      // 2. 清理輸入文字（自動移除 @機器人 與前後引號）
+      // 2. 清理輸入文字（去除 @標記 與外層引號）
       let cleanText = rawText
         .replace(/@\S+\s*/g, "")
         .replace(/^[「『"“]|["”』」]$/g, "")
         .trim();
 
-      // 3. 白名單身分驗證
+      // 3. 管理員身分白名單驗證
       const allowedAdmins = LINE_ADMIN_USER_ID.split(",").map((id) => id.trim());
       if (LINE_ADMIN_USER_ID && !allowedAdmins.includes(userId)) {
         if (!isGroupChat) {
@@ -100,7 +100,25 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 4. 第一重保險：網址直接綁定公告
+      // 4. 稱讚與日常禮貌問候互動回覆
+      const praiseKeywords = ["很棒", "讚", "太棒", "辛苦", "謝謝", "感謝", "你好", "哈囉", "早安", "晚安", "厲害", "棒棒"];
+      const isPraise = praiseKeywords.some((kw) => cleanText.includes(kw));
+
+      if (
+        isPraise &&
+        !cleanText.includes("改為") &&
+        !cleanText.includes("公告") &&
+        !cleanText.includes("標題") &&
+        !cleanText.includes("http")
+      ) {
+        await replyLine(
+          replyToken,
+          "謝謝誇獎！我隨時在線待命，有任何門市公告、賽事戰況或標題要更新，隨時 @ 我交代即可 😊⚾☕"
+        );
+        continue;
+      }
+
+      // 5. 第一重保險：網址直接綁定公告
       const urlMatch = rawText.match(/https?:\/\/[^\s]+/i);
       if (
         urlMatch &&
@@ -126,7 +144,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5. 第一重保險：主標題直接修改
+      // 6. 第一重保險：網站大標題直接修改
       if (
         cleanText.includes("標題") &&
         (cleanText.includes("改為") ||
@@ -151,7 +169,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 6. 第一重保險：公告直接修改
+      // 7. 第一重保險：門市公告直接修改
       let directNotice: string | null = null;
       if (
         cleanText.includes("公告") &&
@@ -186,7 +204,7 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 7. 第二重保險：Gemini 自然語意辨識
+      // 8. 第二重保險：Gemini 自然語言解析
       let parsedNotice: string | null = null;
       let parsedTitle: string | null = null;
       let parsedUrl: string | null = null;
@@ -233,7 +251,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 8. AI 解析成功寫入 Redis 並截圖
+      // 9. AI 解析成功寫入 Redis 並截圖
       if ((parsedNotice || parsedTitle || parsedUrl) && REDIS_URL) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
@@ -258,6 +276,14 @@ export async function POST(req: NextRequest) {
         const screenshot = await captureWebsiteScreenshot();
         await replyLine(replyToken, replyMsg, screenshot);
         continue;
+      }
+
+      // 10. 未識別指令時：僅在 1 對 1 私聊時提示引導
+      if (!isGroupChat) {
+        await replyLine(
+          replyToken,
+          "【Sport Cafe 管理助手】\n已確認管理員身分！您可以交代我：\n\n• 標題改為：民安少棒贏球了！\n• 公告加入連結：https://...\n• 把公告改為：今日下午 2 點營業"
+        );
       }
     }
 
