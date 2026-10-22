@@ -45,31 +45,33 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
-      // 2. 第一重保險：直接匹配關鍵字（免經 AI，速度最快、穩定度最高）
+      // 2. 第一重保險：常見語義直接匹配（免經 AI，0 秒生效）
       const cleanText = userText.replace(/^[「『"“]|["”』」]$/g, "");
+      let directNotice: string | null = null;
+
       if (cleanText.includes("公告") && (cleanText.includes("改為") || cleanText.includes("換成") || cleanText.includes("恢復成"))) {
-        let newNotice = cleanText
-          .replace(/.*?(改為|換成|恢復成)[：:\s]*/, "")
-          .trim();
-        if (cleanText.includes("恢復成歡迎光臨") || newNotice === "歡迎光臨") {
-          newNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備借測空間。";
+        directNotice = cleanText.replace(/.*?(改為|換成|恢復成)[：:\s]*/, "").trim();
+        if (cleanText.includes("恢復成歡迎光臨") || directNotice === "歡迎光臨") {
+          directNotice = "歡迎光臨 Sport Café！手沖精品與專業運動裝備借測空間。";
         }
-
-        if (newNotice && REDIS_URL) {
-          const client = createClient({ url: REDIS_URL });
-          await client.connect();
-          await client.set("site_announcement", newNotice);
-          await client.quit();
-
-          await replyLine(
-            replyToken,
-            `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${newNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`
-          );
-          continue;
-        }
+      } else if (cleanText.includes("營業時間") || cleanText.includes("店休") || cleanText.includes("公休")) {
+        directNotice = cleanText;
       }
 
-      // 3. 第二重保險：透過原生 REST API 呼叫 Gemini AI（無須安裝任何套件）
+      if (directNotice && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_announcement", directNotice);
+        await client.quit();
+
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已成功更新門市公告：\n「${directNotice}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`
+        );
+        continue;
+      }
+
+      // 3. 第二重保險：透過原生 REST API 呼叫 Gemini AI 彈性理解
       let parsedNotice: string | null = null;
       let parsedTitle: string | null = null;
 
@@ -84,14 +86,6 @@ export async function POST(req: NextRequest) {
 
 僅回傳純 JSON 格式，不要包含任何 markdown 或解說文字，例如:
 {"announcement": "今日門市營業時間調整為 14:00 開始", "title": null}`;
-欄位說明：
-- announcement: 公告文字 (若未提及則為 null)
-- title: 網站主標題 (若未提及則為 null)
-
-指令: "${userText}"
-
-僅回傳純 JSON 格式，不要包含任何 markdown 或解說文字，例如:
-{"announcement": "今日下午休館", "title": null}`;
 
           const res = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
@@ -140,7 +134,7 @@ export async function POST(req: NextRequest) {
       // 5. 無法辨識時的友善回覆
       await replyLine(
         replyToken,
-        "【Sport Cafe 管理助手】\n已確認管理員身分！您可以直接用日常口語交代我：\n\n• 把公告改為：今日下午 2 點營業\n• 把公告恢復成歡迎光臨\n• 把標題加上（仙台交流店）"
+        "【Sport Cafe 管理助手】\n已確認管理員身分！您可以直接交代我：\n\n• 門市營業時間更改到下午14:00\n• 把公告改為：今日下午 2 點營業\n• 把公告恢復成歡迎光臨"
       );
     }
 
