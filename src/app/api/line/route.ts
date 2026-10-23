@@ -429,7 +429,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 7. 門市公告修改（Redis 高速通道，支援「公告改為...」、「把公告換成...」）
-      const noticeMatch = cleanText.match(/公告(?:文字|內容)?(?:改為|換成|改成|修改為)[：:\s]*(.+)/);
+      const noticeMatch = cleanText.match(/公告(?:文字|內容)?(?:更改為?|修改為?|設定?為|改成|改為|換成)[：:\s]*(.+)/);
       if (noticeMatch && REDIS_URL) {
         const directNotice = noticeMatch[1].replace(/^[「『"“]|["”』」]$/g, "").trim();
         if (directNotice) {
@@ -450,7 +450,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 8. 網站主標題修改（Redis 高速通道，支援「標題改為...」、「把網頁主標題改成...」）
-      const titleMatch = cleanText.match(/標題(?:文字|內容)?(?:改為|換成|改成|修改為)[：:\s]*(.+)/);
+      const titleMatch = cleanText.match(/標題(?:文字|內容)?(?:更改為?|修改為?|設定?為|改成|改為|換成)[：:\s]*(.+)/);
       if (titleMatch && REDIS_URL) {
         const newTitle = titleMatch[1].replace(/^[「『"“]|["”』」]$/g, "").trim();
         if (newTitle) {
