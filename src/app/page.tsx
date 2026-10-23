@@ -17,6 +17,7 @@ export default function HomePage() {
   // 動態綁定影片區塊
   const [sitePromoVideo, setSitePromoVideo] = useState("https://assets.mixkit.co/videos/preview/mixkit-pouring-coffee-into-a-cup-41545-large.mp4");
   const [sitePromoVideoTitle, setSitePromoVideoTitle] = useState("FEATURED VIDEO ｜ 職人精神 × 少棒熱血應援");
+  const [isVerticalVideo, setIsVerticalVideo] = useState(false);
 
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
@@ -210,15 +211,23 @@ export default function HomePage() {
                 const ytMatch = sitePromoVideo.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([^"&?\/\s]{11})/i);
                 if (ytMatch) {
                   const ytId = ytMatch[1];
+                  const isShorts = sitePromoVideo.toLowerCase().includes('/shorts/');
+                  const ytContainerClass = isShorts
+                    ? "max-w-[360px] mx-auto w-full aspect-[9/16] rounded-2xl shadow-2xl border border-[#C8A97E]/30"
+                    : "w-full max-w-4xl mx-auto aspect-video rounded-2xl shadow-2xl border border-[#C8A97E]/30";
+
                   return (
                     <iframe
                       src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1`}
                       allow="autoplay; encrypted-media; picture-in-picture"
                       allowFullScreen
-                      className="w-full aspect-video rounded-2xl shadow-2xl border border-[#C8A97E]/30"
+                      className={ytContainerClass}
                     />
                   );
                 } else {
+                  const videoClass = isVerticalVideo
+                    ? "max-w-[360px] w-full mx-auto aspect-[9/16] object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30"
+                    : "w-full max-w-4xl mx-auto aspect-video object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30";
                   return (
                     <video
                       key={sitePromoVideo}
@@ -228,7 +237,8 @@ export default function HomePage() {
                       loop
                       muted
                       playsInline
-                      className="w-full rounded-2xl shadow-2xl border border-[#C8A97E]/30 object-cover max-h-[520px]"
+                      onLoadedMetadata={(e) => setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth)}
+                      className={videoClass}
                     />
                   );
                 }
