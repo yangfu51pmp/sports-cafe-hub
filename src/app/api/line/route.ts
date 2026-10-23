@@ -27,15 +27,17 @@ export async function GET(req: NextRequest) {
         site_title: "",
         site_announcement: "",
         site_announcement_url: "",
+        site_hero_image: "",
         _t,
       });
     }
     const client = createClient({ url: REDIS_URL });
     await client.connect();
-    const [site_title, site_announcement, site_announcement_url] = await Promise.all([
+    const [site_title, site_announcement, site_announcement_url, site_hero_image] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
       client.get("site_announcement_url"),
+      client.get("site_hero_image"),
     ]);
     await client.quit();
 
@@ -44,6 +46,7 @@ export async function GET(req: NextRequest) {
         site_title: site_title || "",
         site_announcement: site_announcement || "",
         site_announcement_url: site_announcement_url || "",
+        site_hero_image: site_hero_image || "",
       },
       {
         headers: {
@@ -59,8 +62,19 @@ export async function GET(req: NextRequest) {
       site_title: "",
       site_announcement: "",
       site_announcement_url: "",
+      site_hero_image: "",
     });
   }
+}
+
+// 將中文轉換為英文商業攝影提示詞
+async function translateToEnglishPrompt(chinesePrompt: string): Promise<string> {
+  const prompt = `Translate the following user request into a precise English text-to-image prompt, optimized for a commercial photography style. Provide ONLY the translated English prompt, without any extra text or quotes: "${chinesePrompt}"`;
+  const result = await callGeminiJson(prompt, true);
+  if (result.translatedPrompt) {
+    return result.translatedPrompt;
+  }
+  return chinesePrompt; // Fallback to original if AI fails
 }
 
 // 支援傳送文字與截圖
@@ -92,17 +106,19 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
 }
 
 // 雲端無人瀏覽器即時截圖（自動帶入 Redis 最新標題與公告，確保截圖 100% 零延遲）
-async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?: string): Promise<string | null> {
+async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?: string, overrideBg?: string): Promise<string | null> {
   try {
     let title = overrideTitle || "";
     let notice = overrideNotice || "";
+    let bg = overrideBg || "";
 
-    if ((!title || !notice) && REDIS_URL) {
+    if ((!title || !notice || !bg) && REDIS_URL) {
       try {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
         if (!title) title = (await client.get("site_title")) || "";
         if (!notice) notice = (await client.get("site_announcement")) || "";
+        if (!bg) bg = (await client.get("site_hero_image")) || "";
         await client.quit();
       } catch (e) {
         console.error("Redis read for screenshot error:", e);
@@ -115,6 +131,7 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
     });
     if (title) params.set("live_title", title);
     if (notice) params.set("live_notice", notice);
+    if (bg) params.set("live_bg", bg);
 
     const targetUrl = `https://sports-cafe-hub.vercel.app?${params.toString()}`;
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
@@ -187,7 +204,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
 }
 
 // 呼叫 Gemini API（支援多模型自動容錯切換）
-async function callGeminiJson(prompt: string): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }> }> {
+async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string }> {
   if (!GEMINI_API_KEY) return {};
 
   const models = ["gemini-3.1-pro-preview", "gemini-3.1-pro", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
@@ -202,7 +219,7 @@ async function callGeminiJson(prompt: string): Promise<{ summary?: string; opera
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-              responseMimeType: "application/json",
+              responseMimeType: textOnly ? "text/plain" : "application/json",
               temperature: 0.1,
             },
           }),
@@ -212,10 +229,14 @@ async function callGeminiJson(prompt: string): Promise<{ summary?: string; opera
       if (!aiRes.ok) continue;
 
       const aiData = await aiRes.json();
-      let rawJson = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      if (!rawJson) continue;
+      const rawText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      if (!rawText) continue;
 
-      rawJson = rawJson.replace(/^```[a-zA-Z]*\n/m, "").replace(/\n```$/m, "").trim();
+      if (textOnly) {
+        return { translatedPrompt: rawText.trim() };
+      }
+
+      const rawJson = rawText.replace(/^```[a-zA-Z]*\n/m, "").replace(/\n```$/m, "").trim();
       const parsed = JSON.parse(rawJson);
       if (parsed && Array.isArray(parsed.operations) && parsed.operations.length > 0) {
         return parsed;
@@ -487,6 +508,67 @@ export async function POST(req: NextRequest) {
           );
           continue;
         }
+      }
+
+      // 8.1 網站主視覺背景修改（Redis 高速通道，支援圖片/影片）
+      const bgRestoreMatch = cleanText.match(/^(?:恢復|還原)(?:預設)?背景/);
+      if (bgRestoreMatch && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.del("site_hero_image");
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+        const screenshot = await captureWebsiteScreenshot();
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已為您恢復網站預設背景！\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
+      }
+
+      const manualBgMatch = cleanText.match(/^(?:把|將)?(?:網站|首頁)?背景(?:圖|圖片|照片|影片|視覺)?(?:改為|改成|換成|更改為|更改|修改為|修改|設為|設定為)[：:\s]*(https?:\/\/\S+)/i);
+      if (manualBgMatch && REDIS_URL) {
+        const newBgUrl = manualBgMatch[1].trim();
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_hero_image", newBgUrl);
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+        const screenshot = await captureWebsiteScreenshot(undefined, undefined, newBgUrl);
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已成功更新網站背景：\n${newBgUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
+      }
+
+      // 8.2 AI 自動生圖換背景
+      const autoBgMatch = cleanText.match(/^(?:背景生圖|AI生圖|生成背景|產生背景|生圖換背景)[：:\s]*(.+)/i);
+      if (autoBgMatch && REDIS_URL) {
+        const userPrompt = autoBgMatch[1].trim();
+        const englishPrompt = await translateToEnglishPrompt(userPrompt);
+        const newBgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(englishPrompt)}?width=1080&height=1350&nologo=true&seed=${Date.now()}`;
+
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_hero_image", newBgUrl);
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        await new Promise((resolve) => setTimeout(resolve, 20000));
+        const screenshot = await captureWebsiteScreenshot(undefined, undefined, newBgUrl);
+        await replyLine(
+          replyToken,
+          `已為您 AI 生成並更新網站背景！\n\n生成提示詞：${englishPrompt}\n圖檔連結：${newBgUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
       }
 
       // 9. 智慧代碼與文字修改核心（用於服務項目文字、顏色、版面調整）

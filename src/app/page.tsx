@@ -11,18 +11,25 @@ export default function HomePage() {
   const [siteAnnouncement, setSiteAnnouncement] = useState("");
   const [siteAnnouncementUrl, setSiteAnnouncementUrl] = useState("");
 
+  // 動態綁定網站主視覺背景
+  const [siteHeroImage, setSiteHeroImage] = useState("https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop");
+
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
     const params = new URLSearchParams(window.location.search);
     const liveTitle = params.get("live_title");
     const liveNotice = params.get("live_notice");
     const liveUrl = params.get("live_url");
+    const liveBg = params.get("live_bg");
+
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveTitle) setSiteTitle(liveTitle);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     if (liveNotice) setSiteAnnouncement(liveNotice);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     if (liveUrl) setSiteAnnouncementUrl(liveUrl);
+
+    if (liveBg) setSiteHeroImage(liveBg);
 
     // 2. 向後端 API 讀取 Redis 最新設定
     fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
@@ -31,6 +38,7 @@ export default function HomePage() {
         if (data?.site_title) setSiteTitle(data.site_title);
         if (data?.site_announcement) setSiteAnnouncement(data.site_announcement);
         if (data?.site_announcement_url) setSiteAnnouncementUrl(data.site_announcement_url);
+        if (data?.site_hero_image) setSiteHeroImage(data.site_hero_image);
       })
       .catch((err) => console.error("讀取網站動態設定失敗:", err));
   }, []);
@@ -155,12 +163,17 @@ export default function HomePage() {
       {/* 4. Hero 主視覺（動態顯示 Redis 主標題） */}
       <main className="flex-1">
         <section
-          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end bg-cover bg-center transition-all duration-700"
-          style={{ backgroundImage: `url('https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop')` }}
+          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end transition-all duration-700 overflow-hidden bg-stone-900"
         >
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
+          {siteHeroImage?.match(/\.(mp4|webm)(\?.*)?$/i) ? (
+            <video src={siteHeroImage} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
+          ) : (
+            <img src={siteHeroImage} alt="Hero Background" className="absolute inset-0 w-full h-full object-cover z-0" />
+          )}
 
-          <div className="relative z-10 max-w-7xl w-full mx-auto px-8 pb-16">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10 z-10" />
+
+          <div className="relative z-20 max-w-7xl w-full mx-auto px-8 pb-16">
             <div className={`inline-block px-4 py-1.5 mb-3 rounded-full text-xs font-bold tracking-[0.25em] uppercase ${pureGoldStyle}`}>
               ✦ SPORT CAFÉ EXCLUSIVE ✦
             </div>
