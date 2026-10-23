@@ -1,10 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+
+  // 動態綁定 Redis 的網站主標題、頂部公告與連結
+  const [siteTitle, setSiteTitle] = useState("全國一起為民安少棒加油！");
+  const [siteAnnouncement, setSiteAnnouncement] = useState("民安少棒・巨人盃賽事直播中！");
+  const [siteAnnouncementUrl, setSiteAnnouncementUrl] = useState("https://youtube.com");
+
+  useEffect(() => {
+    // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
+    const params = new URLSearchParams(window.location.search);
+    const liveTitle = params.get("live_title");
+    const liveNotice = params.get("live_notice");
+    const liveUrl = params.get("live_url");
+    if (liveTitle) setSiteTitle(liveTitle);
+    if (liveNotice) setSiteAnnouncement(liveNotice);
+    if (liveUrl) setSiteAnnouncementUrl(liveUrl);
+
+    // 2. 向後端 API 讀取 Redis 最新設定
+    fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.site_title) setSiteTitle(data.site_title);
+        if (data?.site_announcement) setSiteAnnouncement(data.site_announcement);
+        if (data?.site_announcement_url) setSiteAnnouncementUrl(data.site_announcement_url);
+      })
+      .catch((err) => console.error("讀取網站動態設定失敗:", err));
+  }, []);
 
   // 直接鎖定您在 LINE 指定的 4 大最新服務項目
   const services = [
@@ -31,17 +57,17 @@ export default function HomePage() {
         }
       `}</style>
 
-      {/* 1. 頂部公告欄 */}
+      {/* 1. 頂部公告欄（動態顯示 Redis 公告與連結） */}
       <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
           <a
-            href="https://youtube.com"
+            href={siteAnnouncementUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium tracking-wide inline-block animate-pulse"
           >
-            <span>民安少棒・巨人盃賽事直播中！</span>
+            <span>{siteAnnouncement}</span>
             <span className="ml-2 text-[#F3D299] underline underline-offset-4">
               點擊進入直播 ↗
             </span>
@@ -123,7 +149,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 4. Hero 主視覺 */}
+      {/* 4. Hero 主視覺（動態顯示 Redis 主標題） */}
       <main className="flex-1">
         <section
           className="relative h-[520px] sm:h-[600px] flex flex-col justify-end bg-cover bg-center transition-all duration-700"
@@ -136,7 +162,7 @@ export default function HomePage() {
               ✦ SPORT CAFÉ EXCLUSIVE ✦
             </div>
             <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white mb-4 leading-tight">
-              全國一起為民安少棒加油！
+              {siteTitle}
             </h1>
             <p className="text-stone-200 text-sm sm:text-base max-w-xl mb-6 font-light leading-relaxed tracking-wide">
               結合日式極致手沖工藝與專業裝備借測。300天職人匠心淬鍊・專注升級的現代複合空間。
