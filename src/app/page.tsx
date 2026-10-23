@@ -17,8 +17,11 @@ export default function HomePage() {
     const liveTitle = params.get("live_title");
     const liveNotice = params.get("live_notice");
     const liveUrl = params.get("live_url");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveTitle) setSiteTitle(liveTitle);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveNotice) setSiteAnnouncement(liveNotice);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveUrl) setSiteAnnouncementUrl(liveUrl);
 
     // 2. 向後端 API 讀取 Redis 最新設定
