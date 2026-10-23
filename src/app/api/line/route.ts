@@ -271,42 +271,58 @@ async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summa
 
 
 // 呼叫 OpenRouter API
-async function callOpenRouterJson(prompt: string, model: string): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string; modelName?: string }> {
-  if (!OPENROUTER_API_KEY) return {};
+async function callOpenRouterJson(prompt: string, models: string[]): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string; modelName?: string; error?: string }> {
+  if (!OPENROUTER_API_KEY) return { error: "尚未設定 OPENROUTER_API_KEY" };
 
-  try {
-    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-      }),
-    });
+  const jsonPrompt = prompt + "\n\n請務必只回傳包含 'summary' 與 'operations' 陣列的 JSON 格式字串，不要包含任何其他說明文字。";
+  let lastError = "";
 
-    if (!aiRes.ok) {
-      console.error(`OpenRouter ${model} failed with status: ${aiRes.status}`);
-      return {};
+  for (const model of models) {
+    try {
+      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: "user", content: jsonPrompt }],
+        }),
+      });
+
+      if (!aiRes.ok) {
+        lastError = `API 請求失敗 (狀態碼: ${aiRes.status})`;
+        console.error(`OpenRouter ${model} failed with status: ${aiRes.status}`);
+        continue;
+      }
+
+      const aiData = await aiRes.json();
+      const rawText = aiData?.choices?.[0]?.message?.content || "";
+      if (!rawText) {
+        lastError = "模型沒有回傳內容";
+        continue;
+      }
+
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        lastError = "回傳內容找不到 JSON 區塊";
+        continue;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed && Array.isArray(parsed.operations) && parsed.operations.length > 0) {
+        return { ...parsed, modelName: model };
+      } else {
+        lastError = "回傳的 JSON 缺少 operations 或為空";
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`OpenRouter model ${model} error:`, err);
     }
-
-    const aiData = await aiRes.json();
-    const rawText = aiData?.choices?.[0]?.message?.content || "";
-    if (!rawText) return {};
-
-    const rawJson = rawText.replace(/^\`\`\`[a-zA-Z]*\n/m, "").replace(/\n\`\`\`$/m, "").trim();
-    const parsed = JSON.parse(rawJson);
-    if (parsed && Array.isArray(parsed.operations) && parsed.operations.length > 0) {
-      return { ...parsed, modelName: model };
-    }
-  } catch (err) {
-    console.error(`OpenRouter model ${model} error:`, err);
   }
 
-  return {};
+  return { error: `OpenRouter 呼叫失敗 (${lastError})` };
 }
 
 // GitHub 程式碼修改核心（用於服務項目文字、顏色、版面調整）
@@ -364,7 +380,7 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
 ${currentContent}`;
 
 
-  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }>; modelName?: string } = {};
+  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }>; modelName?: string; error?: string } = {};
 
   // 判斷指令包含特定模型
   const claudeMatch = userInstruction.match(/用\s*claude/i);
@@ -381,59 +397,46 @@ ${currentContent}`;
   // 更新 prompt，使用清除後的 cleanInstruction
   const finalPrompt = prompt.replace(userInstruction, cleanInstruction);
 
+  let openRouterError = "";
+
   if (claudeMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.7-sonnet");
+    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+    if (parsed.error) openRouterError = parsed.error;
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.5-sonnet");
+      parsed = await callGeminiJson(finalPrompt);
     }
   } else if (gptMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, "openai/gpt-4o");
-  } else if (grokMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-3");
+    parsed = await callOpenRouterJson(finalPrompt, ["openai/gpt-4o", "openai/gpt-4o-mini"]);
+    if (parsed.error) openRouterError = parsed.error;
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-2-1212");
+      parsed = await callGeminiJson(finalPrompt);
+    }
+  } else if (grokMatch) {
+    parsed = await callOpenRouterJson(finalPrompt, ["x-ai/grok-3", "x-ai/grok-2-1212"]);
+    if (parsed.error) openRouterError = parsed.error;
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callGeminiJson(finalPrompt);
     }
   } else {
     // 預設 Gemini -> 備援 Claude -> GPT-4o -> Grok
     parsed = await callGeminiJson(finalPrompt);
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.7-sonnet");
+      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+      if (parsed.error) openRouterError = parsed.error;
     }
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, "openai/gpt-4o");
+      parsed = await callOpenRouterJson(finalPrompt, ["openai/gpt-4o", "openai/gpt-4o-mini"]);
+      if (parsed.error) openRouterError = parsed.error;
     }
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-3");
+      parsed = await callOpenRouterJson(finalPrompt, ["x-ai/grok-3", "x-ai/grok-2-1212"]);
+      if (parsed.error) openRouterError = parsed.error;
     }
   }
 
-
-  // 智慧備援機制（Fallback）：支援「把 A 改成 B」直接字串替換
-  if (!parsed.operations || parsed.operations.length === 0) {
+  // AI 回傳若空，確保其結構存在
+  if (!parsed.operations) {
     parsed.operations = [];
-    const quoteMatch = userInstruction.match(/[「『"“]([^」』"”]+)[」』"”]\s*(?:改成|換成|改為|修改為|替換為)\s*[「『"“]([^」』"”]+)[」』"”]/);
-    const plainMatch = userInstruction.match(/^(?:請|幫我|把網頁上的|把畫面上的|把)?(.+?)\s*(?:改成|換成|改為|修改為|替換為)[：:\s]*(.+)$/);
-
-    if (quoteMatch) {
-      const oldTxt = quoteMatch[1].trim();
-      const newTxt = quoteMatch[2].trim();
-      parsed.summary = `將「${oldTxt}」更新為「${newTxt}」`;
-      parsed.operations.push({ search: oldTxt, replace: newTxt });
-    } else if (plainMatch) {
-      const oldTxt = plainMatch[1].replace(/^[「『"“]|["”』」]$/g, "").trim();
-      const newTxt = plainMatch[2].replace(/^[「『"“]|["”』」]$/g, "").trim();
-      if (oldTxt && newTxt) {
-        parsed.summary = `將「${oldTxt}」更新為「${newTxt}」`;
-        parsed.operations.push({ search: oldTxt, replace: newTxt });
-      }
-    }
-  }
-
-  if (!parsed.operations || parsed.operations.length === 0) {
-    return {
-      success: false,
-      message: "AI 未能明確定位要修改的代碼，請嘗試指定原文字（例如：把「專業嚴選裝備」改成「職人嚴選裝備」）。",
-    };
   }
 
   let updatedContent = currentContent;
@@ -448,8 +451,31 @@ ${currentContent}`;
     }
   }
 
+  // 強化「把 A 改成 B」精準替換保底機制
   if (appliedCount === 0) {
-    return { success: false, message: "在 page.tsx 中找不到對應的原始文字或樣式片段。" };
+    const directMatch = cleanInstruction.match(/把[「『"']?([^」』"']+)[\」\』"']?\s*(?:改為|改成|換成|更改為|更改|修改為|修改)\s*[「『"']?([^」』"']+)[\」\』"']?/);
+    if (directMatch) {
+      const oldText = directMatch[1];
+      const newText = directMatch[2];
+
+      if (currentContent.includes(oldText)) {
+        updatedContent = currentContent.replace(oldText, newText);
+        appliedCount++;
+        parsed.summary = `精準替換：「${oldText}」為「${newText}」`;
+        parsed.modelName = parsed.modelName ? `${parsed.modelName} (Direct Replace)` : "Direct Replace";
+      }
+    }
+  }
+
+  if (appliedCount === 0) {
+    let errorMsg = "在 page.tsx 中找不到對應的原始文字或樣式片段。";
+    if (openRouterError) {
+       errorMsg = `修改失敗，原因：${openRouterError}`;
+    } else if (!parsed.operations || parsed.operations.length === 0) {
+       errorMsg = "AI 未能明確定位要修改的代碼，請嘗試指定原文字（例如：把「專業嚴選裝備」改成「職人嚴選裝備」）。";
+    }
+
+    return { success: false, message: errorMsg };
   }
 
   const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
