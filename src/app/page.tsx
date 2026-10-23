@@ -38,7 +38,7 @@ export default function HomePage() {
   // 直接鎖定您在 LINE 指定的 4 大最新服務項目
   const services = [
     { title: "精品手沖咖啡", desc: "單品產地嚴選，日式手沖慢滴工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
-    { title: "職人嚴選裝備", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
+    { title: "職人裝備嚴選", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
     { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
     { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
   ];
@@ -134,7 +134,7 @@ export default function HomePage() {
           <div className="max-w-md mx-auto divide-y divide-stone-100 text-stone-800 text-base font-medium">
             {[
               { title: "關於本所", items: ["品牌初心", "創辦理念", "環境導覽"] },
-              { title: "服務項目", items: ["精品手沖咖啡", "職人嚴選裝備", "專業訓練課程", "台日國際交流"] },
+              { title: "服務項目", items: ["精品手沖咖啡", "職人裝備嚴選", "專業訓練課程", "台日國際交流"] },
               { title: "職人專欄", items: ["教練專訪", "裝備評測心得"] },
               { title: "美麗見證", items: ["學員實績分享", "活動花絮"] },
               { title: "參考價目表", items: ["咖啡飲品價目", "裝備借測方案"] },
