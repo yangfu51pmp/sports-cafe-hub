@@ -13,7 +13,7 @@ const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
-const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
+const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
 // 提供給前端 page.tsx 即時讀取 Redis 標題、公告與連結的 GET 通道
@@ -171,7 +171,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
 async function callGeminiJson(prompt: string): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }> }> {
   if (!GEMINI_API_KEY) return {};
 
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+  const models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
 
   for (const model of models) {
     try {

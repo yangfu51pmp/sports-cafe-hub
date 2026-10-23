@@ -7,9 +7,9 @@ export default function HomePage() {
   const [contactOpen, setContactOpen] = useState(false);
 
   // 動態綁定 Redis 的網站主標題、頂部公告與連結
-  const [siteTitle, setSiteTitle] = useState("全國一起為民安少棒加油！");
-  const [siteAnnouncement, setSiteAnnouncement] = useState("民安少棒・巨人盃賽事直播中！");
-  const [siteAnnouncementUrl, setSiteAnnouncementUrl] = useState("https://youtube.com");
+  const [siteTitle, setSiteTitle] = useState("");
+  const [siteAnnouncement, setSiteAnnouncement] = useState("");
+  const [siteAnnouncementUrl, setSiteAnnouncementUrl] = useState("");
 
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
