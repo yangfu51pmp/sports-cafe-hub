@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "redis";
 
-export const dynamic = "force-dynamic";
-
 const REDIS_URL =
   process.env.REDIS_URL ||
   process.env.STORAGE_URL ||
@@ -19,13 +17,17 @@ const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp-8817";
 const GITHUB_REPO = process.env.GITHUB_REPO || "sports-cafe-hub";
 
 // 提供給前端 page.tsx 即時讀取 Redis 標題、公告與連結的 GET 通道
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    // 讀取網址參數讓 Next.js 自動判定為動態 API，無須額外設定 dynamic
+    const _t = req.nextUrl.searchParams.get("t");
+
     if (!REDIS_URL) {
       return NextResponse.json({
         site_title: "",
         site_announcement: "",
         site_announcement_url: "",
+        _t,
       });
     }
     const client = createClient({ url: REDIS_URL });
