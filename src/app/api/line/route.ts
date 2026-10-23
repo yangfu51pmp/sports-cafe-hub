@@ -31,8 +31,27 @@ export async function GET(req: NextRequest) {
         _t,
       });
     }
+
     const client = createClient({ url: REDIS_URL });
     await client.connect();
+
+    if (req.nextUrl.searchParams.get("hero_img") === "1") {
+      const b64 = await client.get("site_hero_image_b64");
+      const mime = await client.get("site_hero_image_mime") || "image/png";
+      await client.quit();
+
+      if (b64) {
+        const buffer = Buffer.from(b64, "base64");
+        return new NextResponse(buffer, {
+          headers: {
+            "Content-Type": mime,
+            "Cache-Control": "public, max-age=86400",
+          },
+        });
+      }
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
     const [site_title, site_announcement, site_announcement_url, site_hero_image] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
@@ -379,12 +398,62 @@ export async function POST(req: NextRequest) {
     const events = body.events || [];
 
     for (const event of events) {
-      if (event.type !== "message" || event.message.type !== "text") continue;
+      if (event.type !== "message" || (event.message.type !== "text" && event.message.type !== "image")) continue;
 
       const userId = event.source.userId;
-      const rawText = event.message.text.trim();
       const replyToken = event.replyToken;
       const isGroupChat = event.source.type === "group" || event.source.type === "room";
+
+      // 處理上傳圖片事件
+      if (event.message.type === "image") {
+        if (REDIS_URL && LINE_CHANNEL_ACCESS_TOKEN) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          const awaitingUpload = await client.get("awaiting_bg_upload");
+
+          if (awaitingUpload === "1") {
+            try {
+              const imageRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
+                headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
+              });
+
+              if (imageRes.ok) {
+                const arrayBuffer = await imageRes.arrayBuffer();
+                const b64 = Buffer.from(arrayBuffer).toString("base64");
+                const mimeType = imageRes.headers.get("content-type") || "image/jpeg";
+
+                await client.set("site_hero_image_b64", b64);
+                await client.set("site_hero_image_mime", mimeType);
+
+                // Get the current base URL for the background
+                const siteUrl = req.nextUrl.origin;
+                const newBgUrl = `${siteUrl}/api/line?hero_img=1&t=${Date.now()}`;
+
+                await client.set("site_hero_image", newBgUrl);
+                await client.del("awaiting_bg_upload");
+                await client.quit();
+
+                try { revalidatePath("/"); } catch {}
+
+                await new Promise((resolve) => setTimeout(resolve, 20000));
+                const screenshot = await captureWebsiteScreenshot(undefined, undefined, newBgUrl);
+                await replyLine(
+                  replyToken,
+                  `已將您傳送的照片設為官網背景！`,
+                  screenshot
+                );
+                continue;
+              }
+            } catch (err) {
+              console.error("Failed to process image upload:", err);
+            }
+          }
+          await client.quit();
+        }
+        continue;
+      }
+
+      const rawText = event.message.text.trim();
 
       // 1. 群組過濾
       const isCallingBot =
@@ -529,6 +598,21 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // 8.1.5 準備上傳背景
+      const uploadBgMatch = rawText.match(/@Sport\s*Cafe\s*(管理)?助手\s*上傳背景/) || cleanText.match(/^準備換背景/);
+      if (uploadBgMatch && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("awaiting_bg_upload", "1", { EX: 300 });
+        await client.quit();
+
+        await replyLine(
+          replyToken,
+          "請在 5 分鐘內直接傳送一張照片到群組，我會立刻幫您換成官網首頁背景！"
+        );
+        continue;
+      }
+
       const manualBgMatch = cleanText.match(/^(?:把|將)?(?:網站|首頁)?背景(?:圖|圖片|照片|影片|視覺)?(?:改為|改成|換成|更改為|更改|修改為|修改|設為|設定為)[：:\s]*(https?:\/\/\S+)/i);
       if (manualBgMatch && REDIS_URL) {
         const newBgUrl = manualBgMatch[1].trim();
@@ -550,14 +634,115 @@ export async function POST(req: NextRequest) {
 
       // 8.2 AI 自動生圖換背景
       const autoBgMatch = cleanText.match(/^(?:背景生圖|AI生圖|生成背景|產生背景|生圖換背景)[：:\s]*(.+)/i);
-      if (autoBgMatch && REDIS_URL) {
+      if (autoBgMatch && REDIS_URL && GEMINI_API_KEY) {
         const userPrompt = autoBgMatch[1].trim();
-        const englishPrompt = await translateToEnglishPrompt(userPrompt);
-        const newBgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(englishPrompt)}?width=1080&height=1350&nologo=true&seed=${Date.now()}`;
+        const englishPrompt = await translateToEnglishPrompt(userPrompt) + ", high-end commercial photography, warm lighting, cinematic, vertical 4:5 aspect ratio, no text";
+
+        let finalBase64 = "";
+        let finalMime = "";
+        let isSuccess = false;
+
+        // 嘗試第一順位: gemini-2.0-flash-preview-image-generation (or exp)
+        try {
+          const genRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${GEMINI_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Generate a high quality vertical photo: " + englishPrompt }] }],
+              generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+            })
+          });
+
+          if (genRes.ok) {
+            const data = await genRes.json();
+            const parts = data?.candidates?.[0]?.content?.parts || [];
+            for (const p of parts) {
+              if (p.inlineData?.data) {
+                finalBase64 = p.inlineData.data;
+                finalMime = p.inlineData.mimeType || "image/jpeg";
+                isSuccess = true;
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Gemini image gen error 1:", e);
+        }
+
+        // 嘗試第二順位: imagen-3.0-generate-002
+        if (!isSuccess) {
+          try {
+            const imgRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${GEMINI_API_KEY}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                instances: [{ prompt: englishPrompt }],
+                parameters: { sampleCount: 1, aspectRatio: "3:4" }
+              })
+            });
+            if (imgRes.ok) {
+              const data = await imgRes.json();
+              if (data?.predictions?.[0]?.bytesBase64Encoded) {
+                finalBase64 = data.predictions[0].bytesBase64Encoded;
+                finalMime = "image/jpeg";
+                isSuccess = true;
+              }
+            }
+          } catch (e) {
+            console.error("Gemini image gen error 2:", e);
+          }
+        }
 
         const client = createClient({ url: REDIS_URL });
         await client.connect();
-        await client.set("site_hero_image", newBgUrl);
+
+        let newBgUrl = "";
+
+        if (isSuccess && finalBase64) {
+          await client.set("site_hero_image_b64", finalBase64);
+          await client.set("site_hero_image_mime", finalMime);
+          newBgUrl = `${req.nextUrl.origin}/api/line?hero_img=1&t=${Date.now()}`;
+          await client.set("site_hero_image", newBgUrl);
+        } else {
+          // 【高質感真實攝影備援】
+          const fallbackUrls = [
+            "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1509042239860-f550ce710b93?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1541167760496-1628856ab772?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1444419988131-046ed4e5ffd6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1511886929837-354d827aae26?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1506869640319-ce1c3603d9e8?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80",
+            "https://images.unsplash.com/photo-1517505298132-7ee0f91ceeb5?ixlib=rb-4.0.3&auto=format&fit=crop&w=1080&q=80"
+          ];
+
+          const selectionPrompt = `Based on the prompt: "${englishPrompt}", pick the most suitable image URL from the following list. Return ONLY the URL, no quotes or other text:\n` + fallbackUrls.join("\n");
+          let bestUrl = fallbackUrls[0];
+
+          try {
+            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: selectionPrompt }] }],
+                generationConfig: { temperature: 0.1 }
+              })
+            });
+            if (aiRes.ok) {
+              const aiData = await aiRes.json();
+              const picked = aiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+              if (picked && fallbackUrls.includes(picked)) {
+                bestUrl = picked;
+              }
+            }
+          } catch (e) {
+            console.error("Gemini fallback selection error:", e);
+          }
+
+          newBgUrl = bestUrl;
+          await client.set("site_hero_image", newBgUrl);
+        }
+
         await client.quit();
         try { revalidatePath("/"); } catch {}
 
@@ -565,7 +750,7 @@ export async function POST(req: NextRequest) {
         const screenshot = await captureWebsiteScreenshot(undefined, undefined, newBgUrl);
         await replyLine(
           replyToken,
-          `已為您 AI 生成並更新網站背景！\n\n生成提示詞：${englishPrompt}\n圖檔連結：${newBgUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          `已為您 AI 生成並更新網站背景！\n\n生成提示詞：${englishPrompt}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
           screenshot
         );
         continue;
