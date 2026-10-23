@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
 async function replyLine(replyToken: string, text: string, imageUrl?: string | null) {
   if (!LINE_CHANNEL_ACCESS_TOKEN) return;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const messages: any[] = [{ type: "text", text }];
 
   if (imageUrl) {
@@ -118,16 +119,34 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
     const targetUrl = `https://sports-cafe-hub.vercel.app?${params.toString()}`;
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
       targetUrl
-    )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=844&force=true`;
+    )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=1650&force=true`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7500);
+    let data;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 7500);
+      const res = await fetch(screenshotApi, { signal: controller.signal, cache: "no-store" });
+      clearTimeout(timer);
 
-    const res = await fetch(screenshotApi, { signal: controller.signal, cache: "no-store" });
-    clearTimeout(timer);
+      if (!res.ok) {
+        throw new Error(`First screenshot attempt failed with status: ${res.status}`);
+      }
+      data = await res.json();
+    } catch (firstErr) {
+      console.error("First screenshot attempt failed, retrying in 2 seconds...", firstErr);
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-    if (!res.ok) return null;
-    const data = await res.json();
+      const controller2 = new AbortController();
+      const timer2 = setTimeout(() => controller2.abort(), 7500);
+      const res2 = await fetch(screenshotApi, { signal: controller2.signal, cache: "no-store" });
+      clearTimeout(timer2);
+
+      if (!res2.ok) {
+        return null;
+      }
+      data = await res2.json();
+    }
+
     return data?.data?.screenshot?.url || null;
   } catch (err) {
     console.error("截圖產生失敗:", err);
@@ -478,9 +497,12 @@ export async function POST(req: NextRequest) {
         const result = await modifyFrontendCode(cleanText);
 
         if (result.success) {
+          await new Promise((resolve) => setTimeout(resolve, 20000));
+          const newScreenshotUrl = await captureWebsiteScreenshot();
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整網站代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub，Vercel 正在部署中（約 20 秒）。完成後請 @ 我說「截圖」驗收！`
+            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整網站代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub 並完成部署，附上最新畫面！`,
+            newScreenshotUrl
           );
           continue;
         } else {
