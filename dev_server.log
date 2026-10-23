@@ -5,8 +5,8 @@
 ▲ Next.js 16.4.2 (Turbopack)
 - Local:         http://localhost:3000
 - Network:       http://192.168.0.2:3000
-✓ Ready in 887ms
-✓ Running next.config.ts took 52ms
+✓ Ready in 573ms
+✓ Running next.config.ts took 47ms
 ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
 
   To migrate automatically, run:
@@ -16,4 +16,22 @@
 - Cache Components enabled
 - Partial Prefetching enabled
 
-Killed
+○ Compiling / ...
+ GET /?preview_key=cafe888 200 in 4.5s (next.js: 4.0s, proxy.ts: 145ms, application-code: 332ms)
+ GET /api/line?t=1792768215256 200 in 3.0s (next.js: 2.7s, proxy.ts: 22ms, application-code: 242ms)
+ GET /api/line?t=1792768215253 200 in 3.0s (next.js: 3.0s, proxy.ts: 20ms, application-code: 6ms)
+ GET /?preview_key=cafe888&live_video=hidden 200 in 120ms (next.js: 24ms, proxy.ts: 5ms, application-code: 91ms)
+ GET /api/line?t=1792768218763 200 in 49ms (next.js: 16ms, proxy.ts: 27ms, application-code: 6ms)
+ GET /api/line?t=1792768218765 200 in 43ms (next.js: 16ms, proxy.ts: 21ms, application-code: 6ms)
+ GET /?preview_key=cafe888&live_video=https://www.youtube.com/watch?v=dQw4w9WgXcQ&live_video_title=Rickroll 200 in 317ms (next.js: 198ms, proxy.ts: 7ms, application-code: 111ms)
+ GET /api/line?t=1792768222194 200 in 49ms (next.js: 6ms, proxy.ts: 35ms, application-code: 7ms)
+ GET /api/line?t=1792768222191 200 in 75ms (next.js: 32ms, proxy.ts: 36ms, application-code: 8ms)
+ GET /?preview_key=cafe888 200 in 125ms (next.js: 50ms, proxy.ts: 6ms, application-code: 68ms)
+ GET /api/line?t=1792768273765 200 in 73ms (next.js: 55ms, proxy.ts: 9ms, application-code: 9ms)
+ GET /api/line?t=1792768273769 200 in 78ms (next.js: 64ms, proxy.ts: 9ms, application-code: 5ms)
+ GET /?preview_key=cafe888&live_video=hidden 200 in 90ms (next.js: 11ms, proxy.ts: 7ms, application-code: 72ms)
+ GET /api/line?t=1792768276892 200 in 70ms (next.js: 37ms, proxy.ts: 18ms, application-code: 15ms)
+ GET /api/line?t=1792768276897 200 in 79ms (next.js: 53ms, proxy.ts: 15ms, application-code: 11ms)
+ GET /?preview_key=cafe888&live_video=https://www.youtube.com/watch?v=dQw4w9WgXcQ&live_video_title=Rickroll 200 in 131ms (next.js: 13ms, proxy.ts: 9ms, application-code: 109ms)
+ GET /api/line?t=1792768280321 200 in 21ms (next.js: 7ms, proxy.ts: 8ms, application-code: 6ms)
+ GET /api/line?t=1792768280323 200 in 30ms (next.js: 20ms, proxy.ts: 5ms, application-code: 4ms)

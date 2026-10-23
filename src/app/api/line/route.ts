@@ -53,11 +53,13 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const [site_title, site_announcement, site_announcement_url, site_hero_image] = await Promise.all([
+    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
       client.get("site_announcement_url"),
       client.get("site_hero_image"),
+      client.get("site_promo_video"),
+      client.get("site_promo_video_title"),
     ]);
     await client.quit();
 
@@ -67,6 +69,8 @@ export async function GET(req: NextRequest) {
         site_announcement: site_announcement || "",
         site_announcement_url: site_announcement_url || "",
         site_hero_image: site_hero_image || "",
+        site_promo_video: site_promo_video || "",
+        site_promo_video_title: site_promo_video_title || "",
       },
       {
         headers: {
@@ -126,19 +130,23 @@ async function replyLine(replyToken: string, text: string, imageUrl?: string | n
 }
 
 // 雲端無人瀏覽器即時截圖（自動帶入 Redis 最新標題與公告，確保截圖 100% 零延遲）
-async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?: string, overrideBg?: string): Promise<string | null> {
+async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?: string, overrideBg?: string, overrideVideo?: string, overrideVideoTitle?: string): Promise<string | null> {
   try {
     let title = overrideTitle || "";
     let notice = overrideNotice || "";
     let bg = overrideBg || "";
+    let video = overrideVideo || "";
+    let videoTitle = overrideVideoTitle || "";
 
-    if ((!title || !notice || !bg) && REDIS_URL) {
+    if ((!title || !notice || !bg || !video || !videoTitle) && REDIS_URL) {
       try {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
         if (!title) title = (await client.get("site_title")) || "";
         if (!notice) notice = (await client.get("site_announcement")) || "";
         if (!bg) bg = (await client.get("site_hero_image")) || "";
+        if (!video) video = (await client.get("site_promo_video")) || "";
+        if (!videoTitle) videoTitle = (await client.get("site_promo_video_title")) || "";
         await client.quit();
       } catch (e) {
         console.error("Redis read for screenshot error:", e);
@@ -152,11 +160,13 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
     if (title) params.set("live_title", title);
     if (notice) params.set("live_notice", notice);
     if (bg) params.set("live_bg", bg);
+    if (video) params.set("live_video", video);
+    if (videoTitle) params.set("live_video_title", videoTitle);
 
     const targetUrl = `https://sports-cafe-hub.vercel.app?${params.toString()}`;
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
       targetUrl
-    )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=1650&force=true`;
+    )}&screenshot=true&viewport.isMobile=true&viewport.width=390&viewport.height=1950&force=true`;
 
     let data;
     try {
@@ -326,6 +336,64 @@ async function callOpenRouterJson(prompt: string, models: string[]): Promise<{ s
 }
 
 // GitHub 程式碼修改核心（用於服務項目文字、顏色、版面調整）
+async function uploadVideoToGitHub(base64Content: string): Promise<boolean> {
+  if (!GITHUB_TOKEN) {
+    console.error("No GITHUB_TOKEN provided.");
+    return false;
+  }
+
+  try {
+    let sha = "";
+    // 1. 取得 public 目錄檔案列表，尋找 promo.mp4 以取得 sha
+    const listRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/public`, {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (listRes.ok) {
+      const files = await listRes.json();
+      const existingFile = files.find((f: { name: string; sha: string }) => f.name === "promo.mp4");
+      if (existingFile) {
+        sha = existingFile.sha;
+      }
+    }
+
+    // 2. 上傳或覆蓋檔案
+    const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/public/promo.mp4`;
+    const putBody: { message: string; content: string; branch: string; sha?: string } = {
+      message: "Update promo.mp4 via LINE bot",
+      content: base64Content,
+      branch: "main",
+    };
+    if (sha) {
+      putBody.sha = sha;
+    }
+
+    const putRes = await fetch(putUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(putBody),
+    });
+
+    if (!putRes.ok) {
+      const errText = await putRes.text();
+      console.error("GitHub API upload failed:", errText);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("uploadVideoToGitHub error:", error);
+    return false;
+  }
+}
+
 async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string; modelName?: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
@@ -388,7 +456,7 @@ ${currentContent}`;
   const grokMatch = userInstruction.match(/用\s*grok/i);
 
   // 清除 "用XXX" 字樣
-  let cleanInstruction = userInstruction
+  const cleanInstruction = userInstruction
     .replace(/用\s*claude/ig, "")
     .replace(/用\s*(?:chatgpt|openai|gpt)/ig, "")
     .replace(/用\s*grok/ig, "")
@@ -563,6 +631,56 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // 處理上傳影片事件
+      if (event.message.type === "video") {
+        if (REDIS_URL && LINE_CHANNEL_ACCESS_TOKEN) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          const awaitingVideoUpload = await client.get("awaiting_video_upload");
+
+          if (awaitingVideoUpload === "1") {
+            try {
+              const videoRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
+                headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
+              });
+
+              if (videoRes.ok) {
+                const arrayBuffer = await videoRes.arrayBuffer();
+                const b64 = Buffer.from(arrayBuffer).toString("base64");
+
+                const uploadSuccess = await uploadVideoToGitHub(b64);
+
+                if (uploadSuccess) {
+                  const siteUrl = req.nextUrl.origin;
+                  const newVideoUrl = `${siteUrl}/promo.mp4?v=${Date.now()}`;
+
+                  await client.set("site_promo_video", newVideoUrl);
+                  await client.del("awaiting_video_upload");
+                  await client.quit();
+
+                  try { revalidatePath("/"); } catch {}
+
+                  await new Promise((resolve) => setTimeout(resolve, 20000));
+                  const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, newVideoUrl);
+                  await replyLine(
+                    replyToken,
+                    `已將您傳送的影片設為官網精選宣傳影片！\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+                    screenshot
+                  );
+                  continue;
+                } else {
+                  await replyLine(replyToken, "影片上傳失敗，請稍後再試。");
+                }
+              }
+            } catch (err) {
+              console.error("Failed to process video upload:", err);
+            }
+          }
+          await client.quit();
+        }
+        continue;
+      }
+
       const rawText = event.message.text.trim();
 
       // 1. 群組過濾
@@ -719,6 +837,94 @@ export async function POST(req: NextRequest) {
         await replyLine(
           replyToken,
           "請在 5 分鐘內直接傳送一張照片到群組，我會立刻幫您換成官網首頁背景！"
+        );
+        continue;
+      }
+
+      // 8.1.6 準備上傳影片
+      const uploadVideoMatch = cleanText.match(/^(?:上傳影片|準備換影片)/);
+      if (uploadVideoMatch && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("awaiting_video_upload", "1", { EX: 300 });
+        await client.quit();
+
+        await replyLine(
+          replyToken,
+          "請在 5 分鐘內直接從手機傳送您的 1 分鐘影片到群組，或直接貼上 YouTube 影片網址！"
+        );
+        continue;
+      }
+
+      // 8.1.7 換影片網址
+      const manualVideoMatch = cleanText.match(/^(?:把|將)?(?:網站|首頁|宣傳)?影片(?:網址|連結)?(?:改為|改成|換成|更改為|更改|設為|設定為|新增)[：:\s]*(https?:\/\/\S+)/i);
+      if (manualVideoMatch && REDIS_URL) {
+        const newVideoUrl = manualVideoMatch[1].trim();
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_promo_video", newVideoUrl);
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, newVideoUrl);
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已成功更新網站影片：\n${newVideoUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
+      }
+
+      // 8.1.8 改影片標題
+      const titleVideoMatch = cleanText.match(/^(?:把|將)?影片標題(?:改為|改成|換成|更改為|更改|設為|設定為)[：:\s]*(.+)/i);
+      if (titleVideoMatch && REDIS_URL) {
+        const newVideoTitle = titleVideoMatch[1].trim();
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_promo_video_title", newVideoTitle);
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, undefined, newVideoTitle);
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已成功更新影片標題：\n「${newVideoTitle}」\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
+      }
+
+      // 8.1.9 隱藏/恢復影片
+      const hideVideoMatch = cleanText.match(/^隱藏影片/);
+      if (hideVideoMatch && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.set("site_promo_video", "hidden");
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, "hidden");
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已隱藏宣傳影片區塊！\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
+        );
+        continue;
+      }
+
+      const showVideoMatch = cleanText.match(/^(?:顯示影片|恢復預設影片)/);
+      if (showVideoMatch && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        await client.del("site_promo_video");
+        await client.quit();
+        try { revalidatePath("/"); } catch {}
+
+        const screenshot = await captureWebsiteScreenshot();
+        await replyLine(
+          replyToken,
+          `【Sport Cafe 管理助手】\n已恢復預設宣傳影片！\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+          screenshot
         );
         continue;
       }

@@ -14,6 +14,10 @@ export default function HomePage() {
   // 動態綁定網站主視覺背景
   const [siteHeroImage, setSiteHeroImage] = useState("https://images.unsplash.com/photo-1534778101976-62847782c213?q=80&w=1600&auto=format&fit=crop");
 
+  // 動態綁定影片區塊
+  const [sitePromoVideo, setSitePromoVideo] = useState("https://assets.mixkit.co/videos/preview/mixkit-pouring-coffee-into-a-cup-41545-large.mp4");
+  const [sitePromoVideoTitle, setSitePromoVideoTitle] = useState("FEATURED VIDEO ｜ 職人精神 × 少棒熱血應援");
+
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
     const params = new URLSearchParams(window.location.search);
@@ -21,6 +25,8 @@ export default function HomePage() {
     const liveNotice = params.get("live_notice");
     const liveUrl = params.get("live_url");
     const liveBg = params.get("live_bg");
+    const liveVideo = params.get("live_video");
+    const liveVideoTitle = params.get("live_video_title");
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveTitle) setSiteTitle(liveTitle);
@@ -31,6 +37,10 @@ export default function HomePage() {
 
     if (liveBg) setSiteHeroImage(liveBg);
 
+    if (liveVideo) setSitePromoVideo(liveVideo);
+
+    if (liveVideoTitle) setSitePromoVideoTitle(liveVideoTitle);
+
     // 2. 向後端 API 讀取 Redis 最新設定
     fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
@@ -39,6 +49,8 @@ export default function HomePage() {
         if (data?.site_announcement) setSiteAnnouncement(data.site_announcement);
         if (data?.site_announcement_url) setSiteAnnouncementUrl(data.site_announcement_url);
         if (data?.site_hero_image) setSiteHeroImage(data.site_hero_image);
+        if (data?.site_promo_video) setSitePromoVideo(data.site_promo_video);
+        if (data?.site_promo_video_title) setSitePromoVideoTitle(data.site_promo_video_title);
       })
       .catch((err) => console.error("讀取網站動態設定失敗:", err));
   }, []);
@@ -185,6 +197,45 @@ export default function HomePage() {
             </p>
           </div>
         </section>
+
+        {/* 宣傳影片區塊 */}
+        {sitePromoVideo !== "hidden" && (
+          <section className="bg-stone-900 py-16 px-6">
+            <div className="max-w-5xl mx-auto flex flex-col items-center">
+              <div className="inline-block px-3 py-1 mb-4 rounded-full text-[10px] font-bold tracking-widest text-[#C8A97E] border border-[#C8A97E]/40 uppercase">
+                {sitePromoVideoTitle}
+              </div>
+
+              {(() => {
+                const ytMatch = sitePromoVideo.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([^"&?\/\s]{11})/i);
+                if (ytMatch) {
+                  const ytId = ytMatch[1];
+                  return (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&playsinline=1`}
+                      allow="autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      className="w-full aspect-video rounded-2xl shadow-2xl border border-[#C8A97E]/30"
+                    />
+                  );
+                } else {
+                  return (
+                    <video
+                      key={sitePromoVideo}
+                      src={sitePromoVideo}
+                      controls
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full rounded-2xl shadow-2xl border border-[#C8A97E]/30 object-cover max-h-[520px]"
+                    />
+                  );
+                }
+              })()}
+            </div>
+          </section>
+        )}
 
         {/* 服務項目清單（已完美更新為 4 個項目） */}
         <section id="services" className="max-w-7xl mx-auto px-8 pt-16 pb-12">
