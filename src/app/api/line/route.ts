@@ -171,7 +171,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
 async function callGeminiJson(prompt: string): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }> }> {
   if (!GEMINI_API_KEY) return {};
 
-  const models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
+  const models = ["gemini-3.1-pro-preview", "gemini-3.1-pro", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
 
   for (const model of models) {
     try {
