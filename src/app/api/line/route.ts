@@ -11,6 +11,7 @@ const REDIS_URL =
 const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
 const LINE_ADMIN_USER_ID = process.env.LINE_ADMIN_USER_ID || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
 const GITHUB_OWNER = process.env.GITHUB_OWNER || "yangfu51pmp";
@@ -223,7 +224,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
 }
 
 // 呼叫 Gemini API（支援多模型自動容錯切換）
-async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string }> {
+async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string; modelName?: string }> {
   if (!GEMINI_API_KEY) return {};
 
   const models = ["gemini-3.1-pro-preview", "gemini-3.1-pro", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"];
@@ -252,13 +253,13 @@ async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summa
       if (!rawText) continue;
 
       if (textOnly) {
-        return { translatedPrompt: rawText.trim() };
+        return { translatedPrompt: rawText.trim(), modelName: model };
       }
 
       const rawJson = rawText.replace(/^```[a-zA-Z]*\n/m, "").replace(/\n```$/m, "").trim();
       const parsed = JSON.parse(rawJson);
       if (parsed && Array.isArray(parsed.operations) && parsed.operations.length > 0) {
-        return parsed;
+        return { ...parsed, modelName: model };
       }
     } catch (err) {
       console.error(`Model ${model} error:`, err);
@@ -268,8 +269,48 @@ async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summa
   return {};
 }
 
+
+// 呼叫 OpenRouter API
+async function callOpenRouterJson(prompt: string, model: string): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string; modelName?: string }> {
+  if (!OPENROUTER_API_KEY) return {};
+
+  try {
+    const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!aiRes.ok) {
+      console.error(`OpenRouter ${model} failed with status: ${aiRes.status}`);
+      return {};
+    }
+
+    const aiData = await aiRes.json();
+    const rawText = aiData?.choices?.[0]?.message?.content || "";
+    if (!rawText) return {};
+
+    const rawJson = rawText.replace(/^\`\`\`[a-zA-Z]*\n/m, "").replace(/\n\`\`\`$/m, "").trim();
+    const parsed = JSON.parse(rawJson);
+    if (parsed && Array.isArray(parsed.operations) && parsed.operations.length > 0) {
+      return { ...parsed, modelName: model };
+    }
+  } catch (err) {
+    console.error(`OpenRouter model ${model} error:`, err);
+  }
+
+  return {};
+}
+
 // GitHub 程式碼修改核心（用於服務項目文字、顏色、版面調整）
-async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string }> {
+async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string; modelName?: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
   }
@@ -322,7 +363,50 @@ async function modifyFrontendCode(userInstruction: string): Promise<{ success: b
 【目前首頁程式碼】：
 ${currentContent}`;
 
-  const parsed = await callGeminiJson(prompt);
+
+  let parsed: { summary?: string; operations?: Array<{ search: string; replace: string }>; modelName?: string } = {};
+
+  // 判斷指令包含特定模型
+  const claudeMatch = userInstruction.match(/用\s*claude/i);
+  const gptMatch = userInstruction.match(/用\s*(?:chatgpt|openai|gpt)/i);
+  const grokMatch = userInstruction.match(/用\s*grok/i);
+
+  // 清除 "用XXX" 字樣
+  let cleanInstruction = userInstruction
+    .replace(/用\s*claude/ig, "")
+    .replace(/用\s*(?:chatgpt|openai|gpt)/ig, "")
+    .replace(/用\s*grok/ig, "")
+    .trim();
+
+  // 更新 prompt，使用清除後的 cleanInstruction
+  const finalPrompt = prompt.replace(userInstruction, cleanInstruction);
+
+  if (claudeMatch) {
+    parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.7-sonnet");
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.5-sonnet");
+    }
+  } else if (gptMatch) {
+    parsed = await callOpenRouterJson(finalPrompt, "openai/gpt-4o");
+  } else if (grokMatch) {
+    parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-3");
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-2-1212");
+    }
+  } else {
+    // 預設 Gemini -> 備援 Claude -> GPT-4o -> Grok
+    parsed = await callGeminiJson(finalPrompt);
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callOpenRouterJson(finalPrompt, "anthropic/claude-3.7-sonnet");
+    }
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callOpenRouterJson(finalPrompt, "openai/gpt-4o");
+    }
+    if (!parsed.operations || parsed.operations.length === 0) {
+      parsed = await callOpenRouterJson(finalPrompt, "x-ai/grok-3");
+    }
+  }
+
 
   // 智慧備援機制（Fallback）：支援「把 A 改成 B」直接字串替換
   if (!parsed.operations || parsed.operations.length === 0) {
@@ -389,7 +473,7 @@ ${currentContent}`;
     return { success: false, message: `GitHub 提交失敗: ${errData.message || putRes.statusText}` };
   }
 
-  return { success: true, message: parsed.summary || "代碼已成功更新" };
+  return { success: true, message: parsed.summary || "代碼已成功更新", modelName: parsed.modelName };
 }
 
 export async function POST(req: NextRequest) {
@@ -768,7 +852,7 @@ export async function POST(req: NextRequest) {
           const newScreenshotUrl = await captureWebsiteScreenshot();
           await replyLine(
             replyToken,
-            `【Sport Cafe AI 工程師】🛠️\n已成功為您調整網站代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub 並完成部署，附上最新畫面！`,
+            `【Sport Cafe AI 工程師 (由 ${result.modelName || "AI"} 提供)】🛠️\n已成功為您調整網站代碼：${result.message}！\n\n⚡ 已自動推送到 GitHub 並完成部署，附上最新畫面！`,
             newScreenshotUrl
           );
           continue;
