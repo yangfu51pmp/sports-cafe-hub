@@ -83,7 +83,7 @@ export default function HomePage() {
     { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
   ];
 
-  const pureGoldStyle = "bg-[#BA9868] hover:bg-[#a68455] text-white shadow-md";
+  const pureGoldStyle = "bg-[#7A1B28] hover:bg-[#a68455] text-white shadow-md";
 
   return (
     <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
@@ -101,7 +101,7 @@ export default function HomePage() {
       `}</style>
 
       {/* 1. 頂部公告欄（動態顯示 Redis 公告與連結） */}
-      <aside className="bg-[#BA9868] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
+      <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
           <a
@@ -119,9 +119,9 @@ export default function HomePage() {
       </aside>
 
       {/* 2. 頂部導覽列 */}
-      <header className="bg-[#BA9868] border-b border-[#BA9868] sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
+      <header className="bg-[#7A1B28] border-b border-[#BA9868] sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#BA9868] flex items-center justify-center font-bold text-white text-base shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-base shadow-sm">
             S
           </div>
           <span className="font-extrabold tracking-[0.2em] text-xl text-[#7A1B28]">
@@ -167,8 +167,8 @@ export default function HomePage() {
 
       {/* 3. 全螢幕漢堡分類選單 */}
       {menuOpen && (
-        <div className="fixed inset-0 top-[110px] bg-[#BA9868] z-40 overflow-y-auto px-6 py-8 shadow-2xl">
-          <div className="max-w-md mx-auto bg-[#BA9868] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
+        <div className="fixed inset-0 top-[110px] bg-[#7A1B28] z-40 overflow-y-auto px-6 py-8 shadow-2xl">
+          <div className="max-w-md mx-auto bg-[#7A1B28] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
             WBEAUTY · SPORT CAFÉ 專屬選單
           </div>
           <div className="max-w-md mx-auto divide-y divide-stone-100 text-stone-800 text-base font-medium">
@@ -195,7 +195,7 @@ export default function HomePage() {
       {/* 4. Hero 主視覺（動態顯示 Redis 主標題） */}
       <main className="flex-1">
         <section
-          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end transition-all duration-700 overflow-hidden bg-[#BA9868]"
+          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end transition-all duration-700 overflow-hidden bg-[#7A1B28]"
         >
           {siteHeroImage?.match(/\.(mp4|webm)(\?.*)?$/i) ? (
             <video src={siteHeroImage} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
@@ -220,7 +220,7 @@ export default function HomePage() {
 
         {/* 宣傳影片區塊 */}
         {sitePromoVideo !== "hidden" && (
-          <section className="bg-[#BA9868] py-16 px-6">
+          <section className="bg-[#7A1B28] py-16 px-6">
             <div className="max-w-5xl mx-auto flex flex-col items-center">
               <div className="inline-block px-3 py-1 mb-4 rounded-full text-[10px] font-bold tracking-widest text-[#C8A97E] border border-[#C8A97E]/40 uppercase">
                 {sitePromoVideoTitle}
@@ -262,7 +262,7 @@ export default function HomePage() {
                           className="w-full h-auto block rounded-2xl shadow-2xl border border-[#C8A97E]/30"
                         />
                         <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-2xl">
-                          <div className="w-16 h-16 bg-[#BA9868]/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
+                          <div className="w-16 h-16 bg-[#7A1B28]/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
                             <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2"></div>
                           </div>
                         </div>
@@ -304,9 +304,9 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {services.map((item, idx) => (
-              <div key={idx} className="bg-[#BA9868] rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
+              <div key={idx} className="bg-[#7A1B28] rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
                 <div className="h-48 overflow-hidden relative">
-                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#BA9868]/90 backdrop-blur text-[10px] font-bold text-[#7A1B28] tracking-widest">
+                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#7A1B28]/90 backdrop-blur text-[10px] font-bold text-[#7A1B28] tracking-widest">
                     {item.tag}
                   </div>
                   <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
@@ -325,11 +325,11 @@ export default function HomePage() {
       </main>
 
       {/* 5. 頂級 Footer */}
-      <footer id="stores" className="bg-[#BA9868] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
+      <footer id="stores" className="bg-[#7A1B28] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-[#BA9868] flex items-center justify-center font-bold text-white text-sm">
+              <div className="w-8 h-8 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-sm">
                 S
               </div>
               <span className="font-bold tracking-widest text-lg text-[#7A1B28]">
@@ -373,7 +373,7 @@ export default function HomePage() {
       </footer>
 
       {/* 6. 手機底部固定導覽列（純金風格） */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-[#BA9868] border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-[#7A1B28] border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
           target="_blank"
@@ -407,7 +407,7 @@ export default function HomePage() {
 
       {/* 7. 右下角彈出選單 */}
       {contactOpen && (
-        <div className="fixed bottom-[60px] right-3 z-50 bg-[#BA9868] rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
+        <div className="fixed bottom-[60px] right-3 z-50 bg-[#7A1B28] rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
           <div className="text-xs font-bold text-[#7A1B28] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
             <span>快速聯絡與據點</span>
             <span className="cursor-pointer text-stone-400" onClick={() => setContactOpen(false)}>✕</span>
@@ -418,7 +418,7 @@ export default function HomePage() {
               <span>LINE 台北館</span>
             </a>
             <a href="tel:0227000000" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 text-stone-700 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#BA9868]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#7A1B28]" />
               <span>諮詢專線 02-77074669</span>
             </a>
           </div>
