@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "redis";
 
+export const maxDuration = 60;
+
 const REDIS_URL =
   process.env.REDIS_URL ||
   process.env.STORAGE_URL ||
@@ -576,7 +578,7 @@ export async function POST(req: NextRequest) {
     const events = body.events || [];
 
     for (const event of events) {
-      if (event.type !== "message" || (event.message.type !== "text" && event.message.type !== "image")) continue;
+      if (event.type !== "message" || (event.message.type !== "text" && event.message.type !== "image" && event.message.type !== "video")) continue;
 
       const userId = event.source.userId;
       const replyToken = event.replyToken;
@@ -639,6 +641,9 @@ export async function POST(req: NextRequest) {
           const awaitingVideoUpload = await client.get("awaiting_video_upload");
 
           if (awaitingVideoUpload === "1") {
+            // 立即刪除以防重複處理
+            await client.del("awaiting_video_upload");
+
             try {
               const videoRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content`, {
                 headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
@@ -655,21 +660,19 @@ export async function POST(req: NextRequest) {
                   const newVideoUrl = `${siteUrl}/promo.mp4?v=${Date.now()}`;
 
                   await client.set("site_promo_video", newVideoUrl);
-                  await client.del("awaiting_video_upload");
                   await client.quit();
 
                   try { revalidatePath("/"); } catch {}
 
-                  await new Promise((resolve) => setTimeout(resolve, 20000));
-                  const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, newVideoUrl);
                   await replyLine(
                     replyToken,
-                    `已將您傳送的影片設為官網精選宣傳影片！\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-                    screenshot
+                    "✅ 已成功接收您的影片（自動適配橫式／直式比例）並推送至 GitHub！Vercel 正在背景部署中（約 20 秒後生效），稍後請輸入『截圖』驗收！"
                   );
                   continue;
                 } else {
-                  await replyLine(replyToken, "影片上傳失敗，請稍後再試。");
+                  await client.quit();
+                  await replyLine(replyToken, "影片檔案可能過大導致上傳失敗，建議您可以改貼 YouTube / Shorts 連結。");
+                  continue;
                 }
               }
             } catch (err) {
@@ -692,6 +695,33 @@ export async function POST(req: NextRequest) {
 
       if (isGroupChat && !isCallingBot) {
         continue;
+      }
+
+      // 1.5. 網址開頭自動處理 awaiting_video_upload
+      if (rawText.startsWith("http://") || rawText.startsWith("https://")) {
+        if (REDIS_URL) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          const awaitingVideoUpload = await client.get("awaiting_video_upload");
+
+          if (awaitingVideoUpload === "1") {
+            const newVideoUrl = rawText;
+            await client.set("site_promo_video", newVideoUrl);
+            await client.del("awaiting_video_upload");
+            await client.quit();
+
+            try { revalidatePath("/"); } catch {}
+
+            const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, newVideoUrl);
+            await replyLine(
+              replyToken,
+              `【Sport Cafe 管理助手】\n已成功接收並更新網站影片：\n${newVideoUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
+              screenshot
+            );
+            continue;
+          }
+          await client.quit();
+        }
       }
 
       // 2. 徹底清理輸入文字
