@@ -83,10 +83,10 @@ export default function HomePage() {
     { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
   ];
 
-  const pureGoldStyle = "bg-[#7A1B28] hover:bg-[#a68455] text-white shadow-md";
+  const pureGoldStyle = "bg-[#C8A97E] hover:bg-[#B89868] text-white shadow-md";
 
   return (
-    <div className="min-h-screen bg-[#FAF7F4] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
+    <div className="min-h-screen bg-[#FAF7F2] text-stone-800 flex flex-col font-sans relative pb-16 md:pb-0">
       <style>{`
         @keyframes marqueeSlide {
           0% { transform: translateX(45%); }
@@ -101,7 +101,7 @@ export default function HomePage() {
       `}</style>
 
       {/* 1. 頂部公告欄（動態顯示 Redis 公告與連結） */}
-      <aside className="bg-[#7A1B28] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
+      <aside className="bg-[#6B1D2F] text-white text-xs sm:text-sm py-2 px-4 text-center overflow-hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-center gap-2 overflow-hidden">
           <span className="w-2 h-2 rounded-full bg-[#F5A623] shrink-0" />
           <a
@@ -119,29 +119,29 @@ export default function HomePage() {
       </aside>
 
       {/* 2. 頂部導覽列 */}
-      <header className="bg-[#7A1B28] border-b border-[#BA9868] sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
+      <header className="bg-white border-b border-stone-200 sticky top-0 z-50 px-6 sm:px-10 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-base shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-[#6B1D2F] flex items-center justify-center font-bold text-white text-base shadow-sm">
             S
           </div>
-          <span className="font-extrabold tracking-[0.2em] text-xl text-[#7A1B28]">
+          <span className="font-extrabold tracking-[0.2em] text-xl text-[#6B1D2F]">
             SPORT CAFÉ
           </span>
         </div>
 
         <nav className="hidden lg:flex items-center gap-7 text-[13px] font-medium text-stone-700 tracking-wider">
-          <a href="#about" className="hover:text-[#7A1B28] transition">關於本所</a>
-          <a href="#services" className="hover:text-[#7A1B28] transition">服務項目</a>
-          <a href="#experts" className="hover:text-[#7A1B28] transition">職人專欄</a>
-          <a href="#sharing" className="hover:text-[#7A1B28] transition">美麗見證</a>
-          <a href="#gear" className="hover:text-[#7A1B28] transition">裝備專區</a>
-          <a href="#prices" className="hover:text-[#7A1B28] transition">參考價目表</a>
-          <a href="#stores" className="hover:text-[#7A1B28] transition">診所據點</a>
-          <a href="#contact" className="hover:text-[#7A1B28] transition">線上客服</a>
+          <a href="#about" className="hover:text-[#6B1D2F] transition">關於本所</a>
+          <a href="#services" className="hover:text-[#6B1D2F] transition">服務項目</a>
+          <a href="#experts" className="hover:text-[#6B1D2F] transition">職人專欄</a>
+          <a href="#sharing" className="hover:text-[#6B1D2F] transition">美麗見證</a>
+          <a href="#gear" className="hover:text-[#6B1D2F] transition">裝備專區</a>
+          <a href="#prices" className="hover:text-[#6B1D2F] transition">參考價目表</a>
+          <a href="#stores" className="hover:text-[#6B1D2F] transition">診所據點</a>
+          <a href="#contact" className="hover:text-[#6B1D2F] transition">線上客服</a>
         </nav>
 
         <div className="flex items-center gap-5">
-          <button aria-label="搜尋" className="text-stone-700 hover:text-[#7A1B28] transition">
+          <button aria-label="搜尋" className="text-stone-800 hover:text-[#6B1D2F] transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.2-5.2m0 0A7.5 7.5 0 105.2 5.2a7.5 7.5 0 0010.6 10.6z" />
             </svg>
@@ -150,10 +150,10 @@ export default function HomePage() {
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             aria-label="選單"
-            className="text-stone-800 hover:text-[#7A1B28] transition p-1"
+            className="text-stone-800 hover:text-[#6B1D2F] transition p-1"
           >
             {menuOpen ? (
-              <svg className="w-7 h-7 text-[#7A1B28]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-7 h-7 text-[#6B1D2F]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             ) : (
@@ -167,8 +167,8 @@ export default function HomePage() {
 
       {/* 3. 全螢幕漢堡分類選單 */}
       {menuOpen && (
-        <div className="fixed inset-0 top-[110px] bg-[#7A1B28] z-40 overflow-y-auto px-6 py-8 shadow-2xl">
-          <div className="max-w-md mx-auto bg-[#7A1B28] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
+        <div className="fixed inset-0 top-[110px] bg-white z-40 overflow-y-auto px-6 py-8 shadow-2xl">
+          <div className="max-w-md mx-auto bg-[#6B1D2F] text-white py-3 px-6 rounded-lg font-medium text-sm mb-6 shadow-sm">
             WBEAUTY · SPORT CAFÉ 專屬選單
           </div>
           <div className="max-w-md mx-auto divide-y divide-stone-100 text-stone-800 text-base font-medium">
@@ -182,9 +182,9 @@ export default function HomePage() {
               { title: "線上客服", items: ["專人 LINE 諮詢", "來電預約專線"] },
             ].map((section, idx) => (
               <div key={idx} className="py-4 flex flex-col gap-2">
-                <div className="flex items-center justify-between cursor-pointer hover:text-[#7A1B28]">
+                <div className="flex items-center justify-between cursor-pointer hover:text-[#6B1D2F]">
                   <span>{section.title}</span>
-                  <span className="text-xl font-light text-[#7A1B28]">+</span>
+                  <span className="text-xl font-light text-[#6B1D2F]">+</span>
                 </div>
               </div>
             ))}
@@ -195,7 +195,7 @@ export default function HomePage() {
       {/* 4. Hero 主視覺（動態顯示 Redis 主標題） */}
       <main className="flex-1">
         <section
-          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end transition-all duration-700 overflow-hidden bg-[#7A1B28]"
+          className="relative h-[520px] sm:h-[600px] flex flex-col justify-end transition-all duration-700 overflow-hidden bg-[#181514]"
         >
           {siteHeroImage?.match(/\.(mp4|webm)(\?.*)?$/i) ? (
             <video src={siteHeroImage} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover z-0" />
@@ -220,7 +220,7 @@ export default function HomePage() {
 
         {/* 宣傳影片區塊 */}
         {sitePromoVideo !== "hidden" && (
-          <section className="bg-[#7A1B28] py-16 px-6">
+          <section className="bg-[#181514] py-16 px-6">
             <div className="max-w-5xl mx-auto flex flex-col items-center">
               <div className="inline-block px-3 py-1 mb-4 rounded-full text-[10px] font-bold tracking-widest text-[#C8A97E] border border-[#C8A97E]/40 uppercase">
                 {sitePromoVideoTitle}
@@ -262,7 +262,7 @@ export default function HomePage() {
                           className="w-full h-auto block rounded-2xl shadow-2xl border border-[#C8A97E]/30"
                         />
                         <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-2xl">
-                          <div className="w-16 h-16 bg-[#7A1B28]/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
+                          <div className="w-16 h-16 bg-[#C8A97E]/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
                             <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2"></div>
                           </div>
                         </div>
@@ -292,9 +292,9 @@ export default function HomePage() {
         )}
 
         {/* 服務項目清單（已完美更新為 4 個項目） */}
-        <section id="services" className="max-w-7xl mx-auto px-8 pt-16 pb-12">
+        <section id="services" className="bg-[#FAF7F2] max-w-7xl mx-auto px-8 pt-16 pb-12">
           <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-wide text-[#7A1B28] mb-2">
+            <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-wide text-[#6B1D2F] mb-2">
               Services & Experience.
             </h2>
             <p className="text-stone-500 text-xs sm:text-sm tracking-widest uppercase">
@@ -304,9 +304,9 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {services.map((item, idx) => (
-              <div key={idx} className="bg-[#7A1B28] rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
+              <div key={idx} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
                 <div className="h-48 overflow-hidden relative">
-                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#7A1B28]/90 backdrop-blur text-[10px] font-bold text-[#7A1B28] tracking-widest">
+                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#FAF7F2]/90 backdrop-blur text-[10px] font-bold text-[#6B1D2F] tracking-widest">
                     {item.tag}
                   </div>
                   <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
@@ -316,7 +316,7 @@ export default function HomePage() {
                     <h3 className="text-lg font-bold text-stone-900 mb-2">{item.title}</h3>
                     <p className="text-xs text-stone-500 leading-relaxed">{item.desc}</p>
                   </div>
-                  <div className="mt-6 flex items-center text-xs font-bold text-[#7A1B28]">了解更多 ➔</div>
+                  <div className="mt-6 flex items-center text-xs font-bold text-[#6B1D2F]">了解更多 ➔</div>
                 </div>
               </div>
             ))}
@@ -325,14 +325,14 @@ export default function HomePage() {
       </main>
 
       {/* 5. 頂級 Footer */}
-      <footer id="stores" className="bg-[#7A1B28] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
+      <footer id="stores" className="bg-[#EFEAE4] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 rounded-full bg-[#7A1B28] flex items-center justify-center font-bold text-white text-sm">
+              <div className="w-8 h-8 rounded-full bg-[#6B1D2F] flex items-center justify-center font-bold text-white text-sm">
                 S
               </div>
-              <span className="font-bold tracking-widest text-lg text-[#7A1B28]">
+              <span className="font-bold tracking-widest text-lg text-[#6B1D2F]">
                 SPORT CAFÉ
               </span>
             </div>
@@ -342,27 +342,27 @@ export default function HomePage() {
           </div>
 
           <div>
-            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">診所據點</div>
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#6B1D2F]">診所據點</div>
             <div className="space-y-4 text-xs text-stone-600">
               <div>
                 <div className="font-bold text-stone-800 mb-0.5">台北南京館</div>
                 <div>📍 台北市南京東路三段331號2樓</div>
-                <div className="text-[#7A1B28]">📞 02-77074669</div>
+                <div className="text-[#6B1D2F]">📞 02-77074669</div>
               </div>
             </div>
           </div>
 
           <div id="contact">
-            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">聯絡我們</div>
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#6B1D2F]">聯絡我們</div>
             <div className="text-xs text-stone-500 mb-1">諮詢專線</div>
-            <div className="text-xl font-serif font-bold text-[#7A1B28] mb-4">02-77074669</div>
+            <div className="text-xl font-serif font-bold text-[#6B1D2F] mb-4">02-77074669</div>
           </div>
 
           <div>
-            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#7A1B28]">快速連結</div>
+            <div className="font-bold text-stone-900 text-sm mb-4 tracking-wider text-[#6B1D2F]">快速連結</div>
             <ul className="space-y-2 text-xs text-stone-600">
-              <li><a href="#services" className="hover:text-[#7A1B28] transition">服務項目</a></li>
-              <li><a href="#stores" className="hover:text-[#7A1B28] transition">門診時間</a></li>
+              <li><a href="#services" className="hover:text-[#6B1D2F] transition">服務項目</a></li>
+              <li><a href="#stores" className="hover:text-[#6B1D2F] transition">門診時間</a></li>
             </ul>
           </div>
         </div>
@@ -373,7 +373,7 @@ export default function HomePage() {
       </footer>
 
       {/* 6. 手機底部固定導覽列（純金風格） */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-[#7A1B28] border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 h-[52px] bg-[#C8A97E] border-t border-stone-200 flex items-stretch shadow-lg md:hidden">
         <a
           href="https://line.me"
           target="_blank"
@@ -407,8 +407,8 @@ export default function HomePage() {
 
       {/* 7. 右下角彈出選單 */}
       {contactOpen && (
-        <div className="fixed bottom-[60px] right-3 z-50 bg-[#7A1B28] rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
-          <div className="text-xs font-bold text-[#7A1B28] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
+        <div className="fixed bottom-[60px] right-3 z-50 bg-white rounded-2xl shadow-2xl border border-stone-200 p-4 w-[270px]">
+          <div className="text-xs font-bold text-[#6B1D2F] mb-3 pb-2 border-b border-stone-100 flex items-center justify-between">
             <span>快速聯絡與據點</span>
             <span className="cursor-pointer text-stone-400" onClick={() => setContactOpen(false)}>✕</span>
           </div>
@@ -418,7 +418,7 @@ export default function HomePage() {
               <span>LINE 台北館</span>
             </a>
             <a href="tel:0227000000" className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-stone-50 text-stone-700 font-medium">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#7A1B28]" />
+              <span className="w-2.5 h-2.5 rounded-full bg-[#6B1D2F]" />
               <span>諮詢專線 02-77074669</span>
             </a>
           </div>
