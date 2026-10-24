@@ -113,6 +113,35 @@ export async function GET(req: NextRequest) {
   }
 }
 
+function getJpegOrientation(buffer: Buffer): "vertical" | "horizontal" {
+  try {
+    let i = 0;
+    if (buffer[0] !== 0xFF || buffer[1] !== 0xD8) {
+      return "horizontal";
+    }
+    i += 2;
+    while (i < buffer.length) {
+      if (buffer[i] !== 0xFF) break;
+      while (buffer[i] === 0xFF) i++; // skip padding 0xFF
+      const marker = buffer[i];
+      i++;
+
+      // SOF0, SOF1, SOF2
+      if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
+        const height = buffer.readUInt16BE(i + 3);
+        const width = buffer.readUInt16BE(i + 5);
+        return height > width ? "vertical" : "horizontal";
+      } else {
+        const length = buffer.readUInt16BE(i);
+        i += length;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to parse JPEG dimensions", e);
+  }
+  return "horizontal";
+}
+
 // 將中文轉換為英文商業攝影提示詞
 async function translateToEnglishPrompt(chinesePrompt: string): Promise<string> {
   const prompt = `Translate the following user request into a precise English text-to-image prompt, optimized for a commercial photography style. Provide ONLY the translated English prompt, without any extra text or quotes: "${chinesePrompt}"`;
@@ -695,11 +724,13 @@ export async function POST(req: NextRequest) {
                     });
                     if (previewRes.ok) {
                       const previewBuffer = await previewRes.arrayBuffer();
-                      const previewB64 = Buffer.from(previewBuffer).toString("base64");
+                      const bufferObj = Buffer.from(previewBuffer);
+                      const orientation = getJpegOrientation(bufferObj);
+                      const previewB64 = bufferObj.toString("base64");
                       await client.set("site_promo_poster_b64", previewB64);
                       const posterUrl = `${siteUrl}/api/line?promo_poster=1&t=${Date.now()}`;
                       await client.set("site_promo_poster", posterUrl);
-                      await client.set("site_promo_orientation", "vertical"); // Default for mobile upload
+                      await client.set("site_promo_orientation", orientation);
                     }
                   } catch (e) {
                     console.error("Failed to fetch video preview:", e);
