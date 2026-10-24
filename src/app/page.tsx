@@ -53,7 +53,9 @@ export default function HomePage() {
 
     if (livePoster) setSitePromoPoster(livePoster);
 
-    if (liveOrientation === "vertical") setIsVerticalVideo(true);
+    if (liveOrientation) {
+      setIsVerticalVideo(liveOrientation === "vertical");
+    }
 
     // 2. 向後端 API 讀取 Redis 最新設定
     fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
@@ -66,7 +68,9 @@ export default function HomePage() {
         if (data?.site_promo_video) setSitePromoVideo(data.site_promo_video);
         if (data?.site_promo_video_title) setSitePromoVideoTitle(data.site_promo_video_title);
         if (data?.site_promo_poster && !livePoster) setSitePromoPoster(data.site_promo_poster);
-        if (data?.site_promo_orientation === "vertical" && !liveOrientation) setIsVerticalVideo(true);
+        if (data?.site_promo_orientation && !liveOrientation) {
+          setIsVerticalVideo(data.site_promo_orientation === "vertical");
+        }
       })
       .catch((err) => console.error("讀取網站動態設定失敗:", err));
   }, []);
@@ -245,14 +249,19 @@ export default function HomePage() {
                     : "w-full max-w-4xl mx-auto aspect-video object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30";
 
                   if (isScreenshotMode && sitePromoPoster) {
+                    const screenshotContainerClass = isVerticalVideo
+                      ? "max-w-[360px] mx-auto w-full relative overflow-hidden"
+                      : "max-w-4xl mx-auto w-full relative overflow-hidden";
+
                     return (
-                      <div className={`relative flex items-center justify-center overflow-hidden ${videoClass}`}>
+                      <div className={screenshotContainerClass}>
                         <img
                           src={sitePromoPoster}
                           alt="Video Poster"
-                          className="w-full h-full object-contain"
+                          onLoad={(e) => setIsVerticalVideo(e.currentTarget.naturalHeight > e.currentTarget.naturalWidth)}
+                          className="w-full h-auto block rounded-2xl shadow-2xl border border-[#C8A97E]/30"
                         />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center rounded-2xl">
                           <div className="w-16 h-16 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
                             <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2"></div>
                           </div>
