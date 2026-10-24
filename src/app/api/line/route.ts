@@ -526,7 +526,7 @@ ${currentContent}`;
   let openRouterError = "";
 
   if (claudeMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-4", "anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
     if (parsed.error) openRouterError = parsed.error;
     if (!parsed.operations || parsed.operations.length === 0) {
       parsed = await callGeminiJson(finalPrompt);
@@ -547,7 +547,7 @@ ${currentContent}`;
     // 預設 Gemini -> 備援 Claude -> GPT-4o -> Grok
     parsed = await callGeminiJson(finalPrompt);
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-4", "anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
       if (parsed.error) openRouterError = parsed.error;
     }
     if (!parsed.operations || parsed.operations.length === 0) {
@@ -933,7 +933,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 8.1.5 準備上傳背景
-      const uploadBgMatch = rawText.match(/@Sport\s*Cafe\s*(管理)?助手\s*上傳背景/) || cleanText.match(/^準備換背景/);
+      const uploadBgMatch = rawText.match(/@Sport\s*Cafe\s*(管理)?助手\s*上傳背景/) || cleanText.match(/^(?:準備換背景|主題背景更換|更換背景|換背景)/);
       if (uploadBgMatch && REDIS_URL) {
         const client = createClient({ url: REDIS_URL });
         await client.connect();
@@ -1035,6 +1035,87 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+
+      // 8.1.10 恢復上一版
+      const restoreMatch = cleanText.match(/^(?:恢復上一版|恢復回上一版|恢復前一版)/);
+      if (restoreMatch && GITHUB_TOKEN) {
+        try {
+          const commitsRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits?path=src/app/page.tsx`, {
+            headers: {
+              "Authorization": `Bearer ${GITHUB_TOKEN}`,
+              "Accept": "application/vnd.github.v3+json",
+              "User-Agent": "Sport-Cafe-Bot"
+            }
+          });
+          const commitsData = await commitsRes.json();
+
+          if (commitsRes.ok && commitsData.length > 1) {
+            // commitsData[0] is the current, commitsData[1] is the previous one.
+            const previousCommitSha = commitsData[1].sha;
+
+            const fileRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx?ref=${previousCommitSha}`, {
+              headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "Sport-Cafe-Bot"
+              }
+            });
+            const fileData = await fileRes.json();
+
+            if (fileRes.ok && fileData.content) {
+              const previousContent = Buffer.from(fileData.content, 'base64').toString('utf8');
+
+              // Now write it back to current branch
+              // get current file sha
+              const currFileRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx`, {
+                headers: {
+                  "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                  "Accept": "application/vnd.github.v3+json",
+                  "User-Agent": "Sport-Cafe-Bot"
+                }
+              });
+              const currFileData = await currFileRes.json();
+
+              const updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx`, {
+                method: 'PUT',
+                headers: {
+                  "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                  "Accept": "application/vnd.github.v3+json",
+                  "User-Agent": "Sport-Cafe-Bot"
+                },
+                body: JSON.stringify({
+                  message: 'Revert: 恢復上一版 src/app/page.tsx',
+                  content: Buffer.from(previousContent).toString('base64'),
+                  sha: currFileData.sha
+                })
+              });
+
+              if (updateRes.ok) {
+                await new Promise(r => setTimeout(r, 20000));
+                const screenshot = await captureWebsiteScreenshot();
+                await replyLine(
+                  replyToken,
+                  '【Sport Cafe 管理助手】\n已成功為您恢復為上一版的版面狀態！',
+                  screenshot
+                );
+                continue;
+              } else {
+                await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：更新 GitHub 檔案時發生錯誤。');
+                continue;
+              }
+            } else {
+              await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：無法取得前一版的檔案內容。');
+              continue;
+            }
+          } else {
+             await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：找不到前一版的歷史紀錄。');
+             continue;
+          }
+        } catch(e) {
+           await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：發生系統例外錯誤。');
+           continue;
+        }
+      }
       const manualBgMatch = cleanText.match(/^(?:把|將)?(?:網站|首頁)?背景(?:圖|圖片|照片|影片|視覺)?(?:改為|改成|換成|更改為|更改|修改為|修改|設為|設定為)[：:\s]*(https?:\/\/\S+)/i);
       if (manualBgMatch && REDIS_URL) {
         const newBgUrl = manualBgMatch[1].trim();
