@@ -19,6 +19,10 @@ export default function HomePage() {
   const [sitePromoVideoTitle, setSitePromoVideoTitle] = useState("FEATURED VIDEO ｜ 職人精神 × 少棒熱血應援");
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
 
+  // 截圖與封面圖模式支援
+  const [sitePromoPoster, setSitePromoPoster] = useState("");
+  const [isScreenshotMode, setIsScreenshotMode] = useState(false);
+
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
     const params = new URLSearchParams(window.location.search);
@@ -28,6 +32,9 @@ export default function HomePage() {
     const liveBg = params.get("live_bg");
     const liveVideo = params.get("live_video");
     const liveVideoTitle = params.get("live_video_title");
+    const isScreenshot = params.get("screenshot") === "1";
+    const livePoster = params.get("live_poster");
+    const liveOrientation = params.get("live_orientation");
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveTitle) setSiteTitle(liveTitle);
@@ -42,6 +49,12 @@ export default function HomePage() {
 
     if (liveVideoTitle) setSitePromoVideoTitle(liveVideoTitle);
 
+    if (isScreenshot) setIsScreenshotMode(true);
+
+    if (livePoster) setSitePromoPoster(livePoster);
+
+    if (liveOrientation === "vertical") setIsVerticalVideo(true);
+
     // 2. 向後端 API 讀取 Redis 最新設定
     fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
@@ -52,6 +65,8 @@ export default function HomePage() {
         if (data?.site_hero_image) setSiteHeroImage(data.site_hero_image);
         if (data?.site_promo_video) setSitePromoVideo(data.site_promo_video);
         if (data?.site_promo_video_title) setSitePromoVideoTitle(data.site_promo_video_title);
+        if (data?.site_promo_poster && !livePoster) setSitePromoPoster(data.site_promo_poster);
+        if (data?.site_promo_orientation === "vertical" && !liveOrientation) setIsVerticalVideo(true);
       })
       .catch((err) => console.error("讀取網站動態設定失敗:", err));
   }, []);
@@ -228,10 +243,30 @@ export default function HomePage() {
                   const videoClass = isVerticalVideo
                     ? "max-w-[360px] w-full mx-auto aspect-[9/16] object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30"
                     : "w-full max-w-4xl mx-auto aspect-video object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30";
+
+                  if (isScreenshotMode && sitePromoPoster) {
+                    return (
+                      <div className={`relative flex items-center justify-center overflow-hidden ${videoClass}`}>
+                        <img
+                          src={sitePromoPoster}
+                          alt="Video Poster"
+                          className="w-full h-full object-contain"
+                        />
+                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                          <div className="w-16 h-16 bg-white/30 backdrop-blur-md rounded-full flex items-center justify-center border border-white/50 shadow-lg">
+                            <div className="w-0 h-0 border-t-[12px] border-t-transparent border-l-[20px] border-l-white border-b-[12px] border-b-transparent ml-2"></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
                   return (
                     <video
                       key={sitePromoVideo}
                       src={sitePromoVideo}
+                      poster={sitePromoPoster || undefined}
+                      preload="metadata"
                       controls
                       autoPlay
                       loop
