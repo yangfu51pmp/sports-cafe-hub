@@ -55,13 +55,31 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title] = await Promise.all([
+    if (req.nextUrl.searchParams.get("promo_poster") === "1") {
+      const b64 = await client.get("site_promo_poster_b64");
+      await client.quit();
+
+      if (b64) {
+        const buffer = Buffer.from(b64, "base64");
+        return new NextResponse(buffer, {
+          headers: {
+            "Content-Type": "image/jpeg",
+            "Cache-Control": "public, max-age=86400",
+          },
+        });
+      }
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
+    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title, site_promo_poster, site_promo_orientation] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
       client.get("site_announcement_url"),
       client.get("site_hero_image"),
       client.get("site_promo_video"),
       client.get("site_promo_video_title"),
+      client.get("site_promo_poster"),
+      client.get("site_promo_orientation"),
     ]);
     await client.quit();
 
@@ -73,6 +91,8 @@ export async function GET(req: NextRequest) {
         site_hero_image: site_hero_image || "",
         site_promo_video: site_promo_video || "",
         site_promo_video_title: site_promo_video_title || "",
+        site_promo_poster: site_promo_poster || "",
+        site_promo_orientation: site_promo_orientation || "",
       },
       {
         headers: {
@@ -139,6 +159,8 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
     let bg = overrideBg || "";
     let video = overrideVideo || "";
     let videoTitle = overrideVideoTitle || "";
+    let poster = "";
+    let orientation = "";
 
     if ((!title || !notice || !bg || !video || !videoTitle) && REDIS_URL) {
       try {
@@ -149,6 +171,8 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
         if (!bg) bg = (await client.get("site_hero_image")) || "";
         if (!video) video = (await client.get("site_promo_video")) || "";
         if (!videoTitle) videoTitle = (await client.get("site_promo_video_title")) || "";
+        poster = (await client.get("site_promo_poster")) || "";
+        orientation = (await client.get("site_promo_orientation")) || "";
         await client.quit();
       } catch (e) {
         console.error("Redis read for screenshot error:", e);
@@ -157,6 +181,7 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
 
     const params = new URLSearchParams({
       preview_key: "cafe888",
+      screenshot: "1",
       t: String(Date.now()),
     });
     if (title) params.set("live_title", title);
@@ -164,6 +189,8 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
     if (bg) params.set("live_bg", bg);
     if (video) params.set("live_video", video);
     if (videoTitle) params.set("live_video_title", videoTitle);
+    if (poster) params.set("live_poster", poster);
+    if (orientation) params.set("live_orientation", orientation);
 
     const targetUrl = `https://sports-cafe-hub.vercel.app?${params.toString()}`;
     const screenshotApi = `https://api.microlink.io?url=${encodeURIComponent(
@@ -660,6 +687,24 @@ export async function POST(req: NextRequest) {
                   const newVideoUrl = `${siteUrl}/promo.mp4?v=${Date.now()}`;
 
                   await client.set("site_promo_video", newVideoUrl);
+
+                  // Fetch and save video thumbnail
+                  try {
+                    const previewRes = await fetch(`https://api-data.line.me/v2/bot/message/${event.message.id}/content/preview`, {
+                      headers: { Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}` }
+                    });
+                    if (previewRes.ok) {
+                      const previewBuffer = await previewRes.arrayBuffer();
+                      const previewB64 = Buffer.from(previewBuffer).toString("base64");
+                      await client.set("site_promo_poster_b64", previewB64);
+                      const posterUrl = `${siteUrl}/api/line?promo_poster=1&t=${Date.now()}`;
+                      await client.set("site_promo_poster", posterUrl);
+                      await client.set("site_promo_orientation", "vertical"); // Default for mobile upload
+                    }
+                  } catch (e) {
+                    console.error("Failed to fetch video preview:", e);
+                  }
+
                   await client.quit();
 
                   try { revalidatePath("/"); } catch {}
