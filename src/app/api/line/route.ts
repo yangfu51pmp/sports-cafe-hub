@@ -4,6 +4,34 @@ import { createClient } from "redis";
 
 export const maxDuration = 60;
 
+// 智慧輪詢等待部署完成
+async function waitForDeployment(expectedText?: string) {
+  console.log("Waiting 15 seconds before first deployment check...");
+  await new Promise(r => setTimeout(r, 15000));
+
+  for (let i = 0; i < 7; i++) {
+    try {
+      const url = `https://sports-cafe-hub.vercel.app?_t=${Date.now()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      const html = await res.text();
+
+      if (expectedText && html.includes(expectedText)) {
+        console.log(`Deployment verified: found expected text "${expectedText}" on attempt ${i + 1}.`);
+        return; // Found text, skip waiting
+      }
+      console.log(`Deployment check attempt ${i + 1} did not find expected text. Checking again in 3s...`);
+    } catch (e) {
+      console.error(`Deployment check error on attempt ${i + 1}:`, e);
+    }
+
+    // Wait 3 seconds before the next check
+    if (i < 6) {
+      await new Promise(r => setTimeout(r, 3000));
+    }
+  }
+  console.log("Finished waiting for deployment (max attempts reached).");
+}
+
 const REDIS_URL =
   process.env.REDIS_URL ||
   process.env.STORAGE_URL ||
@@ -212,6 +240,7 @@ async function captureWebsiteScreenshot(overrideTitle?: string, overrideNotice?:
       preview_key: "cafe888",
       screenshot: "1",
       t: String(Date.now()),
+      cb: String(Date.now()),
     });
     if (title) params.set("live_title", title);
     if (notice) params.set("live_notice", notice);
@@ -452,7 +481,7 @@ async function uploadVideoToGitHub(base64Content: string): Promise<boolean> {
   }
 }
 
-async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string; modelName?: string }> {
+async function modifyFrontendCode(userInstruction: string): Promise<{ success: boolean; message: string; modelName?: string; expectedText?: string }> {
   if (!GITHUB_TOKEN) {
     return { success: false, message: "尚未在 Vercel 設定 GITHUB_TOKEN。" };
   }
@@ -526,28 +555,19 @@ ${currentContent}`;
   let openRouterError = "";
 
   if (claudeMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-4", "anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
     if (parsed.error) openRouterError = parsed.error;
-    if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callGeminiJson(finalPrompt);
-    }
   } else if (gptMatch) {
     parsed = await callOpenRouterJson(finalPrompt, ["openai/gpt-4o", "openai/gpt-4o-mini"]);
     if (parsed.error) openRouterError = parsed.error;
-    if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callGeminiJson(finalPrompt);
-    }
   } else if (grokMatch) {
     parsed = await callOpenRouterJson(finalPrompt, ["x-ai/grok-3", "x-ai/grok-2-1212"]);
     if (parsed.error) openRouterError = parsed.error;
-    if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callGeminiJson(finalPrompt);
-    }
   } else {
     // 預設 Gemini -> 備援 Claude -> GPT-4o -> Grok
     parsed = await callGeminiJson(finalPrompt);
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-4", "anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet"]);
+      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
       if (parsed.error) openRouterError = parsed.error;
     }
     if (!parsed.operations || parsed.operations.length === 0) {
@@ -567,6 +587,7 @@ ${currentContent}`;
 
   let updatedContent = currentContent;
   let appliedCount = 0;
+  let expectedText = "";
 
   for (const op of parsed.operations) {
     if (!op.search || !op.replace) continue;
@@ -574,6 +595,9 @@ ${currentContent}`;
     if (res.ok) {
       updatedContent = res.newContent;
       appliedCount++;
+      if (!expectedText) {
+        expectedText = op.replace;
+      }
     }
   }
 
@@ -587,6 +611,7 @@ ${currentContent}`;
       if (currentContent.includes(oldText)) {
         updatedContent = currentContent.replace(oldText, newText);
         appliedCount++;
+        expectedText = newText;
         parsed.summary = `精準替換：「${oldText}」為「${newText}」`;
         parsed.modelName = parsed.modelName ? `${parsed.modelName} (Direct Replace)` : "Direct Replace";
       }
@@ -602,6 +627,18 @@ ${currentContent}`;
     }
 
     return { success: false, message: errorMsg };
+  }
+
+  // 修改前，先將修改前的 currentContent 寫入 Redis
+  if (REDIS_URL) {
+    try {
+      const redisClient = createClient({ url: REDIS_URL });
+      await redisClient.connect();
+      await redisClient.set("site_page_prev_backup", currentContent);
+      await redisClient.quit();
+    } catch (e) {
+      console.error("Backup to Redis failed before modifying code:", e);
+    }
   }
 
   const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
@@ -625,7 +662,7 @@ ${currentContent}`;
     return { success: false, message: `GitHub 提交失敗: ${errData.message || putRes.statusText}` };
   }
 
-  return { success: true, message: parsed.summary || "代碼已成功更新", modelName: parsed.modelName };
+  return { success: true, message: parsed.summary || "代碼已成功更新", modelName: parsed.modelName, expectedText };
 }
 
 export async function POST(req: NextRequest) {
@@ -1037,77 +1074,99 @@ export async function POST(req: NextRequest) {
 
 
       // 8.1.10 恢復上一版
-      const restoreMatch = cleanText.match(/^(?:恢復上一版|恢復回上一版|恢復前一版)/);
+      const restoreMatch = cleanText.match(/^(?:恢復上一版|恢復回上一版|還原上一版|恢復前一版)/);
       if (restoreMatch && GITHUB_TOKEN) {
         try {
-          const commitsRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits?path=src/app/page.tsx`, {
+          // 先取得目前線上的最新內容與 sha
+          const currFileRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/src/app/page.tsx`, {
             headers: {
               "Authorization": `Bearer ${GITHUB_TOKEN}`,
               "Accept": "application/vnd.github.v3+json",
               "User-Agent": "Sport-Cafe-Bot"
-            }
+            },
+            cache: "no-store"
           });
-          const commitsData = await commitsRes.json();
+          const currFileData = await currFileRes.json();
+          const currContentBase64 = currFileData.content || "";
+          const currContent = Buffer.from(currContentBase64, 'base64').toString('utf8');
+          const currentSha = currFileData.sha;
 
-          if (commitsRes.ok && commitsData.length > 1) {
-            // commitsData[0] is the current, commitsData[1] is the previous one.
-            const previousCommitSha = commitsData[1].sha;
+          let previousContent = "";
+          let redisClient;
 
-            const fileRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx?ref=${previousCommitSha}`, {
+          // 第一重保障：從 Redis 讀取備份
+          if (REDIS_URL) {
+            redisClient = createClient({ url: REDIS_URL });
+            await redisClient.connect();
+            previousContent = (await redisClient.get("site_page_prev_backup")) || "";
+          }
+
+          // 如果 Redis 沒資料，嘗試第二重保障：從 GitHub Commits API 取得前一版
+          if (!previousContent) {
+            const commitsRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?path=src/app/page.tsx&per_page=2`, {
               headers: {
                 "Authorization": `Bearer ${GITHUB_TOKEN}`,
                 "Accept": "application/vnd.github.v3+json",
                 "User-Agent": "Sport-Cafe-Bot"
               }
             });
-            const fileData = await fileRes.json();
+            const commitsData = await commitsRes.json();
 
-            if (fileRes.ok && fileData.content) {
-              const previousContent = Buffer.from(fileData.content, 'base64').toString('utf8');
+            if (commitsRes.ok && commitsData.length > 1) {
+              const previousCommitSha = commitsData[1].sha;
 
-              // Now write it back to current branch
-              // get current file sha
-              const currFileRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx`, {
+              const fileRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/src/app/page.tsx?ref=${previousCommitSha}`, {
                 headers: {
                   "Authorization": `Bearer ${GITHUB_TOKEN}`,
                   "Accept": "application/vnd.github.v3+json",
                   "User-Agent": "Sport-Cafe-Bot"
                 }
               });
-              const currFileData = await currFileRes.json();
+              const fileData = await fileRes.json();
 
-              const updateRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/src/app/page.tsx`, {
-                method: 'PUT',
-                headers: {
-                  "Authorization": `Bearer ${GITHUB_TOKEN}`,
-                  "Accept": "application/vnd.github.v3+json",
-                  "User-Agent": "Sport-Cafe-Bot"
-                },
-                body: JSON.stringify({
-                  message: 'Revert: 恢復上一版 src/app/page.tsx',
-                  content: Buffer.from(previousContent).toString('base64'),
-                  sha: currFileData.sha
-                })
-              });
-
-              if (updateRes.ok) {
-                await new Promise(r => setTimeout(r, 20000));
-                const screenshot = await captureWebsiteScreenshot();
-                await replyLine(
-                  replyToken,
-                  '【Sport Cafe 管理助手】\n已成功為您恢復為上一版的版面狀態！',
-                  screenshot
-                );
-                continue;
-              } else {
-                await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：更新 GitHub 檔案時發生錯誤。');
-                continue;
+              if (fileRes.ok && fileData.content) {
+                previousContent = Buffer.from(fileData.content, 'base64').toString('utf8');
               }
+            }
+          }
+
+          if (previousContent) {
+            const updateRes = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/src/app/page.tsx`, {
+              method: 'PUT',
+              headers: {
+                "Authorization": `Bearer ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "Sport-Cafe-Bot"
+              },
+              body: JSON.stringify({
+                message: 'Revert: 恢復上一版 src/app/page.tsx',
+                content: Buffer.from(previousContent).toString('base64'),
+                sha: currentSha
+              })
+            });
+
+            if (updateRes.ok) {
+              // 恢復成功後，將被覆蓋的版本存入 Redis 備份（交換）
+              if (redisClient) {
+                await redisClient.set("site_page_prev_backup", currContent);
+                await redisClient.quit();
+              }
+
+              await waitForDeployment();
+              const screenshot = await captureWebsiteScreenshot();
+              await replyLine(
+                replyToken,
+                '【Sport Cafe 管理助手】\n已成功為您恢復為上一版的版面狀態！',
+                screenshot
+              );
+              continue;
             } else {
-              await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：無法取得前一版的檔案內容。');
+              if (redisClient) await redisClient.quit();
+              await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：更新 GitHub 檔案時發生錯誤。');
               continue;
             }
           } else {
+             if (redisClient) await redisClient.quit();
              await replyLine(replyToken, '【Sport Cafe 管理助手】恢復失敗：找不到前一版的歷史紀錄。');
              continue;
           }
@@ -1267,7 +1326,7 @@ export async function POST(req: NextRequest) {
         const result = await modifyFrontendCode(cleanText);
 
         if (result.success) {
-          await new Promise((resolve) => setTimeout(resolve, 20000));
+          await waitForDeployment(result.expectedText);
           const newScreenshotUrl = await captureWebsiteScreenshot();
           await replyLine(
             replyToken,
