@@ -1,7 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useEffect } from "react";
+import AiVideoPlayer, { VideoScript } from "@/components/AiVideoPlayer";
 
 export interface ThemeProduct {
   id: string;
@@ -86,10 +87,21 @@ export default function HomePage() {
   const [sitePromoVideo, setSitePromoVideo] = useState("https://assets.mixkit.co/videos/preview/mixkit-pouring-coffee-into-a-cup-41545-large.mp4");
   const [sitePromoVideoTitle, setSitePromoVideoTitle] = useState("FEATURED VIDEO ｜ 職人精神 × 少棒熱血應援");
   const [isVerticalVideo, setIsVerticalVideo] = useState(false);
+  const [sitePromoVideoDraft, setSitePromoVideoDraft] = useState("");
+  const [siteAiVideoScript, setSiteAiVideoScript] = useState<VideoScript | null>(null);
+  const [siteAiVideoScriptDraft, setSiteAiVideoScriptDraft] = useState<VideoScript | null>(null);
+  const [isPreviewVideo, setIsPreviewVideo] = useState(false);
 
   // 截圖與封面圖模式支援
   const [sitePromoPoster, setSitePromoPoster] = useState("");
   const [isScreenshotMode, setIsScreenshotMode] = useState(false);
+
+  // Default v6.2 Fallback Script
+  const DEFAULT_SCRIPT: VideoScript = {
+    title: "SPORT CAFÉ (v6.2)",
+    cover: { journal: "SPORT CAFÉ", date: "2026.10", title: "職人精神 × 少棒熱血應援", subtitle: "極致日式手沖工藝與專業裝備", stamp: "HOT", speaker: "特約教練", speakerRole: "GUEST" },
+    subtitles: [{ start: 0, end: 100, text: "歡迎來到 SPORT CAFÉ", highlight: "SPORT CAFÉ", color: "#FDE047" }]
+  };
 
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
@@ -130,6 +142,9 @@ export default function HomePage() {
       setIsVerticalVideo(liveOrientation === "vertical");
     }
 
+    const isPreview = params.get("preview") === "video";
+    setIsPreviewVideo(isPreview);
+
     // 2. 向後端 API 讀取 Redis 最新設定
     fetch(`/api/line?t=${Date.now()}`, { cache: "no-store" })
       .then((res) => res.json())
@@ -143,6 +158,13 @@ export default function HomePage() {
         if (data?.site_promo_poster && !livePoster) setSitePromoPoster(data.site_promo_poster);
         if (data?.site_promo_orientation && !liveOrientation) {
           setIsVerticalVideo(data.site_promo_orientation === "vertical");
+        }
+        if (data?.site_promo_video_draft) setSitePromoVideoDraft(data.site_promo_video_draft);
+        if (data?.site_ai_video_script) {
+          try { setSiteAiVideoScript(typeof data.site_ai_video_script === 'string' ? JSON.parse(data.site_ai_video_script) : data.site_ai_video_script); } catch(e){}
+        }
+        if (data?.site_ai_video_script_draft) {
+          try { setSiteAiVideoScriptDraft(typeof data.site_ai_video_script_draft === 'string' ? JSON.parse(data.site_ai_video_script_draft) : data.site_ai_video_script_draft); } catch(e){}
         }
         if (Array.isArray(data?.site_themes) && data.site_themes.length > 0) {
           setThemes(data.site_themes);
@@ -290,15 +312,23 @@ export default function HomePage() {
         {sitePromoVideo !== "hidden" && (
           <section className="bg-[#181514] py-16 px-6">
             <div className="max-w-5xl mx-auto flex flex-col items-center">
+              {isPreviewVideo && (
+                <div className="mb-6 w-full max-w-4xl bg-[#6B1D2F] text-white text-center text-sm font-bold py-3 px-4 rounded-xl shadow-lg border border-[#C8A97E]">
+                  🎬 SPORT CAFÉ 內部審片室 (v6.2) — 僅內部可見匯出與下載面板，確認無誤請回 LINE 輸入「確認上架影片」
+                </div>
+              )}
+
               <div className="inline-block px-3 py-1 mb-4 rounded-full text-[10px] font-bold tracking-widest text-[#C8A97E] border border-[#C8A97E]/40 uppercase">
                 {sitePromoVideoTitle}
               </div>
 
               {(() => {
-                const ytMatch = sitePromoVideo.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([^"&?\/\s]{11})/i);
+                const activeVideoUrl = isPreviewVideo ? (sitePromoVideoDraft || sitePromoVideo) : sitePromoVideo;
+
+                const ytMatch = activeVideoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/live\/)([^"&?\/\s]{11})/i);
                 if (ytMatch) {
                   const ytId = ytMatch[1];
-                  const isShorts = sitePromoVideo.toLowerCase().includes('/shorts/');
+                  const isShorts = activeVideoUrl.toLowerCase().includes('/shorts/');
                   const ytContainerClass = isShorts
                     ? "max-w-[360px] mx-auto w-full aspect-[9/16] rounded-2xl shadow-2xl border border-[#C8A97E]/30"
                     : "w-full max-w-4xl mx-auto aspect-video rounded-2xl shadow-2xl border border-[#C8A97E]/30";
@@ -312,10 +342,6 @@ export default function HomePage() {
                     />
                   );
                 } else {
-                  const videoClass = isVerticalVideo
-                    ? "max-w-[360px] w-full mx-auto aspect-[9/16] object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30"
-                    : "w-full max-w-4xl mx-auto aspect-video object-contain bg-black rounded-2xl shadow-2xl border border-[#C8A97E]/30";
-
                   if (isScreenshotMode && sitePromoPoster) {
                     const screenshotContainerClass = isVerticalVideo
                       ? "max-w-[360px] mx-auto w-full relative overflow-hidden"
@@ -338,20 +364,18 @@ export default function HomePage() {
                     );
                   }
 
+                  const activeScript = isPreviewVideo ? (siteAiVideoScriptDraft || siteAiVideoScript || DEFAULT_SCRIPT) : (siteAiVideoScript || DEFAULT_SCRIPT);
+
                   return (
-                    <video
-                      key={sitePromoVideo}
-                      src={sitePromoVideo}
-                      poster={sitePromoPoster || undefined}
-                      preload="metadata"
-                      controls
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      onLoadedMetadata={(e) => setIsVerticalVideo(e.currentTarget.videoHeight > e.currentTarget.videoWidth)}
-                      className={videoClass}
-                    />
+                    <div className="w-full max-w-4xl mx-auto">
+                      <AiVideoPlayer
+                        videoUrl={activeVideoUrl}
+                        posterUrl={sitePromoPoster || undefined}
+                        script={activeScript}
+                        isPreviewMode={isPreviewVideo}
+                        defaultVertical={isVerticalVideo}
+                      />
+                    </div>
                   );
                 }
               })()}
