@@ -384,7 +384,7 @@ async function callAiForVideoScript(prompt: string): Promise<any> {
 async function generateAiVideoScript(topicPrompt: string, existingScript?: any, previewImageB64?: string): Promise<any> {
   const prompt = existingScript
     ? `根據使用者的修改指令："${topicPrompt}"，更新以下 JSON 物件。原始 JSON: ${typeof existingScript === 'string' ? existingScript : JSON.stringify(existingScript)}
-請確保 100% 繁體中文，嚴禁出現英文句子。
+請確保 100% 繁體中文，嚴禁出現英文句子 (如 MYTH BUSTED 等)。
 確保結果完全符合以下 VideoScript TypeScript 介面:
 {
   title?: string;
@@ -394,7 +394,7 @@ async function generateAiVideoScript(topicPrompt: string, existingScript?: any, 
   outro: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
 }
 嚴格回傳 JSON。`
-    : `請產生一個短影音的腳本 JSON 物件，請確保 100% 繁體中文，嚴禁出現英文句子！
+    : `請產生一個短影音的腳本 JSON 物件，請確保 100% 繁體中文，嚴禁出現英文句子 (如 MYTH BUSTED 等)！
 確保結果完全符合以下 VideoScript TypeScript 介面:
 {
   title?: string;
@@ -405,8 +405,8 @@ async function generateAiVideoScript(topicPrompt: string, existingScript?: any, 
 }
 要求：
 - cover 時間必須是 0.0s~3.2s
-- subtitles 必須有 8 句完整的繁體中文逐句字幕，並設定重點詞 highlight 及顏色 (#FDE047 或 #38BDF8 或 #FF6B6B)
-- events 必須有 6 張不重疊的繁體中文重點字卡，涵蓋各種 type，sfx 固定為 "none"
+- subtitles 必須有 10 句完整的繁體中文逐句字幕，每句 12～18 字，並設定 3～5 字的重點詞 highlight 及顏色 (#FDE047 或 #38BDF8 或 #FF6B6B)
+- events 必須有 6 張不重疊的繁體中文重點字卡，涵蓋各種 type，sfx 固定為 "none"。每張字卡都必須同時填寫 badge (4～6字)、title (8～12字) 與 subtitle/text (12～18字補充解析)
 - outro 是最後 3.5 秒的總結卡，包含 3 大重點條列與 LINE 行動呼籲
 主題 / 焦點: ${topicPrompt || "SPORT CAFÉ 品牌介紹"}
 嚴格回傳 JSON。`;
