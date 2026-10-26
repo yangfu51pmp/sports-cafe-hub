@@ -1,8 +1,76 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect */
 "use client";
 
 import { useState, useEffect } from "react";
 
+export interface ThemeProduct {
+  id: string;
+  name: string;
+  badge: string;
+  price: string;
+  spec: string;
+  img: string;
+}
+
+export interface ThemeCategory {
+  title: string;
+  desc: string;
+  tag: string;
+  img: string;
+  products: ThemeProduct[];
+}
+
+const DEFAULT_THEMES: ThemeCategory[] = [
+  {
+    title: "極致職人手沖咖啡",
+    desc: "嚴選莊園單品，極致日式手沖工藝。",
+    tag: "COFFEE",
+    img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop",
+    products: [
+      { id: "c1", name: "衣索比亞 耶加雪菲 日曬 G1", badge: "人氣單品", price: "NT$ 200 / 杯", spec: "淺焙手沖｜馥郁柑橘花香與熱帶水果甜感，尾韻乾淨綿長。", img: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop" },
+      { id: "c2", name: "巴拿馬 翡翠莊園 綠標藝伎 Geisha", badge: "莊園限量", price: "NT$ 450 / 杯", spec: "極致日式點滴手沖｜標誌性茉莉花香、佛手柑與水蜜桃蜜甜韻。", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop" },
+      { id: "c3", name: "職人醇厚深焙 濾掛咖啡禮盒 (10入)", badge: "伴手禮首選", price: "NT$ 580 / 盒", spec: "中深焙特調｜黑巧克力與焦糖堅果香氣，居家與球場隨時享受。", img: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?q=80&w=600&auto=format&fit=crop" }
+    ]
+  },
+  {
+    title: "職人裝備嚴選",
+    desc: "日規打擊配重與高規格球具體驗。",
+    tag: "EQUIPMENT",
+    img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop",
+    products: [
+      { id: "e1", name: "日規職人手作 實戰內野手套", badge: "日本牛皮", price: "NT$ 8,800", spec: "日本進口硬式/軟式皮革｜職人刀模定型，極致接球手感與紮實球袋。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" },
+      { id: "e2", name: "高反發平衡配重 少棒/青少棒打擊棒", badge: "店內可借測", price: "NT$ 6,500", spec: "日規配重設計｜提升揮棒初速與甜蜜點傳導，支援門市實測體驗。", img: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=600&auto=format&fit=crop" },
+      { id: "e3", name: "職業級防滑小羊皮打擊手套組", badge: "實戰必備", price: "NT$ 1,680", spec: "高貼合度立體剪裁｜強化手腕包覆與掌心止滑，揮擊不滑手。", img: "https://images.unsplash.com/photo-1562077772-3bd90403f7f0?q=80&w=600&auto=format&fit=crop" }
+    ]
+  },
+  {
+    title: "專業訓練課程",
+    desc: "為運動員與品味人士特調的機能補給與訓練。",
+    tag: "TRAINING",
+    img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop",
+    products: [
+      { id: "t1", name: "日式打擊機制與揮棒軌跡 一對一特訓", badge: "名師指導", price: "NT$ 2,500 / 堂", spec: "60分鐘專項檢測｜結合高速攝影動作分析，精準修正發力順序與擊球仰角。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" },
+      { id: "t2", name: "內野守備步法與傳球協調專項班", badge: "少棒熱銷", price: "NT$ 1,800 / 堂", spec: "下盤重心轉換與接傳流暢度訓練｜建立日本少棒標準基本功。", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop" },
+      { id: "t3", name: "運動員賽前機能咖啡＆修復補給套組", badge: "職人特調", price: "NT$ 880 / 組", spec: "專注力提升手沖飲品＋賽後電解質與優質蛋白補給方案。", img: "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600&auto=format&fit=crop" }
+    ]
+  },
+  {
+    title: "台日國際交流",
+    desc: "結合仙台草野塾與台灣少棒的深度交流。",
+    tag: "EXCHANGE",
+    img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop",
+    products: [
+      { id: "x1", name: "日本東北・仙台草野塾 移地訓練專案", badge: "仙台直通", price: "專案預約諮詢", spec: "前日職名將草野大輔親自指導｜結合日式室內訓練場與在地文化深度體驗。", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=600&auto=format&fit=crop" },
+      { id: "x2", name: "台日少棒友誼交流賽＆家庭應援團", badge: "年度盛事", price: "專案預約諮詢", spec: "安排日本在地少棒強權交流賽、球場參訪、隨團翻譯與專業賽事攝影紀錄。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" },
+      { id: "x3", name: "日本客座教練來台 球團/校隊包班講習", badge: "團體預約", price: "專案預約諮詢", spec: "引進正統日本棒球訓練課表與觀念講座，提供球隊客製化技術升級。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" }
+    ]
+  }
+];
+
 export default function HomePage() {
+  const [themes, setThemes] = useState<ThemeCategory[]>(DEFAULT_THEMES);
+  const [activeThemeIndex, setActiveThemeIndex] = useState<number | null>(null);
+  const [toastMsg, setToastMsg] = useState<string>("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
 
@@ -35,6 +103,11 @@ export default function HomePage() {
     const isScreenshot = params.get("screenshot") === "1";
     const livePoster = params.get("live_poster");
     const liveOrientation = params.get("live_orientation");
+    const openTheme = params.get("open_theme");
+
+    if (openTheme !== null) {
+      setActiveThemeIndex(Number(openTheme));
+    }
 
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (liveTitle) setSiteTitle(liveTitle);
@@ -71,17 +144,12 @@ export default function HomePage() {
         if (data?.site_promo_orientation && !liveOrientation) {
           setIsVerticalVideo(data.site_promo_orientation === "vertical");
         }
+        if (Array.isArray(data?.site_themes) && data.site_themes.length > 0) {
+          setThemes(data.site_themes);
+        }
       })
       .catch((err) => console.error("讀取網站動態設定失敗:", err));
   }, []);
-
-  // 直接鎖定您在 LINE 指定的 4 大最新服務項目
-  const services = [
-    { title: "極致職人手沖咖啡", desc: "嚴選莊園單品，極致日式手沖工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop" },
-    { title: "職人裝備嚴選", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop" },
-    { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop" },
-    { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop" },
-  ];
 
   const pureGoldStyle = "bg-[#C8A97E] hover:bg-[#B89868] text-white shadow-md";
 
@@ -303,11 +371,18 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {services.map((item, idx) => (
-              <div key={idx} className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer">
+            {themes.map((item, idx) => (
+              <div
+                key={idx}
+                className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition border border-stone-100 flex flex-col group cursor-pointer"
+                onClick={() => setActiveThemeIndex(idx)}
+              >
                 <div className="h-48 overflow-hidden relative">
-                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#FAF7F2]/90 backdrop-blur text-[10px] font-bold text-[#6B1D2F] tracking-widest">
+                  <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-[#FAF7F2]/90 backdrop-blur text-[10px] font-bold text-[#6B1D2F] tracking-widest shadow-sm">
                     {item.tag}
+                  </div>
+                  <div className="absolute top-3 right-3 z-10 px-3 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-bold text-stone-700 tracking-wider shadow-sm">
+                    精選 {item.products?.length || 0} 款
                   </div>
                   <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
                 </div>
@@ -316,13 +391,95 @@ export default function HomePage() {
                     <h3 className="text-lg font-bold text-stone-900 mb-2">{item.title}</h3>
                     <p className="text-xs text-stone-500 leading-relaxed">{item.desc}</p>
                   </div>
-                  <div className="mt-6 flex items-center text-xs font-bold text-[#6B1D2F]">了解更多 ➔</div>
+                  <div className="mt-6 flex items-center justify-center text-xs font-bold text-white bg-[#6B1D2F] hover:bg-[#5a1827] py-2.5 rounded-xl shadow-sm transition">
+                    點擊查看主題商品 (v1.0) ➔
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </section>
+
+        {/* 4.5. Second Layer UI: Full-Screen Theme Products Modal */}
+        {activeThemeIndex !== null && themes[activeThemeIndex] && (
+          <div
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+            onClick={() => setActiveThemeIndex(null)}
+          >
+            <div
+              className="bg-[#FAF7F2] w-full max-w-4xl max-h-[88vh] rounded-3xl overflow-hidden shadow-2xl border border-[#C8A97E]/40 flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-[#6B1D2F] text-white px-6 py-5 flex items-center justify-between shrink-0">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold tracking-widest bg-white/20 px-2 py-0.5 rounded-md">
+                      {themes[activeThemeIndex].tag}
+                    </span>
+                    <h3 className="text-lg font-bold tracking-wide">{themes[activeThemeIndex].title}</h3>
+                  </div>
+                  <p className="text-xs text-white/80">{themes[activeThemeIndex].desc}</p>
+                </div>
+                <button
+                  onClick={() => setActiveThemeIndex(null)}
+                  className="text-white hover:text-[#C8A97E] text-sm font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl transition"
+                >
+                  ✕ 關閉視窗
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
+                {themes[activeThemeIndex].products?.map((product, pIdx) => (
+                  <div key={pIdx} className="bg-white rounded-2xl overflow-hidden shadow-md border border-stone-200/80 flex flex-col justify-between group">
+                    <div>
+                      <div className="relative">
+                        <img src={product.img} alt={product.name} className="h-44 w-full object-cover group-hover:scale-105 transition duration-500" />
+                        <div className="absolute top-3 left-3 bg-[#6B1D2F] text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
+                          {product.badge}
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <h4 className="font-bold text-stone-900 text-sm mb-1">{product.name}</h4>
+                        <div className="text-[#C8A97E] font-bold text-sm mb-2">{product.price}</div>
+                        <p className="text-xs text-stone-500 leading-relaxed line-clamp-3">{product.spec}</p>
+                      </div>
+                    </div>
+                    <div className="p-4 pt-0">
+                      <button
+                        onClick={() => {
+                          const msg = `您好！我想詢問 SPORT CAFÉ【${themes[activeThemeIndex].title}】的「${product.name} (${product.price})」詳情！`;
+                          if (navigator.clipboard) {
+                            navigator.clipboard.writeText(msg).catch(() => {});
+                          }
+                          setToastMsg("已複製商品訊息，為您跳轉 LINE！");
+                          setTimeout(() => setToastMsg(""), 3000);
+                          window.open(`https://line.me/R/msg/text/?${encodeURIComponent(msg)}`, "_blank");
+                        }}
+                        className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                      >
+                        💬 點此 LINE 詢問／購買
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {(!themes[activeThemeIndex].products || themes[activeThemeIndex].products.length === 0) && (
+                  <div className="col-span-full py-12 text-center text-stone-500 text-sm flex flex-col items-center gap-3">
+                    <span className="text-3xl opacity-50">☕</span>
+                    此主題目前尚無專屬商品，敬請期待！
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
+      {/* Toast 提示 */}
+      {toastMsg && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-black/80 text-white text-xs font-bold px-6 py-3 rounded-full shadow-2xl backdrop-blur animate-fade-in">
+          {toastMsg}
+        </div>
+      )}
 
       {/* 5. 頂級 Footer */}
       <footer id="stores" className="bg-[#EFEAE4] border-t border-stone-300 text-stone-800 py-12 px-6 sm:px-12 mt-16">

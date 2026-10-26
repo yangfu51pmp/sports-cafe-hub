@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect */
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "redis";
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title, site_promo_poster, site_promo_orientation] = await Promise.all([
+    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title, site_promo_poster, site_promo_orientation, site_themes_json] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
       client.get("site_announcement_url"),
@@ -108,8 +109,14 @@ export async function GET(req: NextRequest) {
       client.get("site_promo_video_title"),
       client.get("site_promo_poster"),
       client.get("site_promo_orientation"),
+      client.get("site_themes_json"),
     ]);
     await client.quit();
+
+    let site_themes = null;
+    try {
+      if (site_themes_json) site_themes = JSON.parse(site_themes_json);
+    } catch {}
 
     return NextResponse.json(
       {
@@ -121,6 +128,8 @@ export async function GET(req: NextRequest) {
         site_promo_video_title: site_promo_video_title || "",
         site_promo_poster: site_promo_poster || "",
         site_promo_orientation: site_promo_orientation || "",
+        site_themes: site_themes,
+        _t,
       },
       {
         headers: {
@@ -1316,6 +1325,102 @@ export async function POST(req: NextRequest) {
           screenshot
         );
         continue;
+      }
+
+      // 8.5 動態主題商品管理
+      if (REDIS_URL) {
+        const resetMatch = cleanText.match(/^(?:重置主題商品|恢復預設商品)/i);
+        if (resetMatch) {
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          await client.del("site_themes_json");
+          await client.quit();
+          await replyLine(replyToken, "【Sport Cafe 管理助手】\n已成功為您恢復為預設主題商品！");
+          continue;
+        }
+
+        const addProductMatch = cleanText.match(/^新增商品[：:\s]*([^｜|]+)[｜|]([^｜|]+)[｜|]([^｜|]+)[｜|]([^｜|]+)(?:[｜|](.+))?/i);
+        if (addProductMatch) {
+          const [ , themeKeyword, name, price, spec, imgUrl ] = addProductMatch;
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          const site_themes_json = await client.get("site_themes_json");
+          let themes = [];
+          if (site_themes_json) {
+            try { themes = JSON.parse(site_themes_json); } catch {}
+          } else {
+            themes = [
+              { title: "極致職人手沖咖啡", desc: "嚴選莊園單品，極致日式手沖工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop", products: [ { id: "c1", name: "衣索比亞 耶加雪菲 日曬 G1", badge: "人氣單品", price: "NT$ 200 / 杯", spec: "淺焙手沖｜馥郁柑橘花香與熱帶水果甜感，尾韻乾淨綿長。", img: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop" }, { id: "c2", name: "巴拿馬 翡翠莊園 綠標藝伎 Geisha", badge: "莊園限量", price: "NT$ 450 / 杯", spec: "極致日式點滴手沖｜標誌性茉莉花香、佛手柑與水蜜桃蜜甜韻。", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop" }, { id: "c3", name: "職人醇厚深焙 濾掛咖啡禮盒 (10入)", badge: "伴手禮首選", price: "NT$ 580 / 盒", spec: "中深焙特調｜黑巧克力與焦糖堅果香氣，居家與球場隨時享受。", img: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "職人裝備嚴選", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop", products: [ { id: "e1", name: "日規職人手作 實戰內野手套", badge: "日本牛皮", price: "NT$ 8,800", spec: "日本進口硬式/軟式皮革｜職人刀模定型，極致接球手感與紮實球袋。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" }, { id: "e2", name: "高反發平衡配重 少棒/青少棒打擊棒", badge: "店內可借測", price: "NT$ 6,500", spec: "日規配重設計｜提升揮棒初速與甜蜜點傳導，支援門市實測體驗。", img: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=600&auto=format&fit=crop" }, { id: "e3", name: "職業級防滑小羊皮打擊手套組", badge: "實戰必備", price: "NT$ 1,680", spec: "高貼合度立體剪裁｜強化手腕包覆與掌心止滑，揮擊不滑手。", img: "https://images.unsplash.com/photo-1562077772-3bd90403f7f0?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop", products: [ { id: "t1", name: "日式打擊機制與揮棒軌跡 一對一特訓", badge: "名師指導", price: "NT$ 2,500 / 堂", spec: "60分鐘專項檢測｜結合高速攝影動作分析，精準修正發力順序與擊球仰角。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" }, { id: "t2", name: "內野守備步法與傳球協調專項班", badge: "少棒熱銷", price: "NT$ 1,800 / 堂", spec: "下盤重心轉換與接傳流暢度訓練｜建立日本少棒標準基本功。", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop" }, { id: "t3", name: "運動員賽前機能咖啡＆修復補給套組", badge: "職人特調", price: "NT$ 880 / 組", spec: "專注力提升手沖飲品＋賽後電解質與優質蛋白補給方案。", img: "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop", products: [ { id: "x1", name: "日本東北・仙台草野塾 移地訓練專案", badge: "仙台直通", price: "專案預約諮詢", spec: "前日職名將草野大輔親自指導｜結合日式室內訓練場與在地文化深度體驗。", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=600&auto=format&fit=crop" }, { id: "x2", name: "台日少棒友誼交流賽＆家庭應援團", badge: "年度盛事", price: "專案預約諮詢", spec: "安排日本在地少棒強權交流賽、球場參訪、隨團翻譯與專業賽事攝影紀錄。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" }, { id: "x3", name: "日本客座教練來台 球團/校隊包班講習", badge: "團體預約", price: "專案預約諮詢", spec: "引進正統日本棒球訓練課表與觀念講座，提供球隊客製化技術升級。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" } ] }
+            ];
+          }
+
+          let themeIndex = themes.findIndex((t: any) => t.title.includes(themeKeyword.trim()) || t.tag.includes(themeKeyword.trim()));
+          if (themeIndex === -1) themeIndex = 0;
+
+          const newProduct = {
+            id: `p_${Date.now()}`,
+            name: name.trim(),
+            badge: "新品上市",
+            price: price.trim(),
+            spec: spec.trim(),
+            img: imgUrl?.trim() || themes[themeIndex].img || "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600&auto=format&fit=crop"
+          };
+
+          if (!themes[themeIndex].products) themes[themeIndex].products = [];
+          themes[themeIndex].products.push(newProduct);
+
+          await client.set("site_themes_json", JSON.stringify(themes));
+          await client.quit();
+
+          await replyLine(
+            replyToken,
+            `【Sport Cafe 管理助手】\n已成功為您在主題【${themes[themeIndex].title}】新增商品：\n${newProduct.name}\n${newProduct.price}\n\n已即時同步至官網商品櫃！`
+          );
+          continue;
+        }
+
+        const deleteProductMatch = cleanText.match(/^刪除商品[：:\s]*(.+)/i);
+        if (deleteProductMatch) {
+          const deleteKeyword = deleteProductMatch[1].trim();
+          const client = createClient({ url: REDIS_URL });
+          await client.connect();
+          const site_themes_json = await client.get("site_themes_json");
+          let themes = [];
+          let deletedCount = 0;
+
+          if (site_themes_json) {
+            try { themes = JSON.parse(site_themes_json); } catch {}
+          } else {
+            themes = [
+              { title: "極致職人手沖咖啡", desc: "嚴選莊園單品，極致日式手沖工藝。", tag: "COFFEE", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=800&auto=format&fit=crop", products: [ { id: "c1", name: "衣索比亞 耶加雪菲 日曬 G1", badge: "人氣單品", price: "NT$ 200 / 杯", spec: "淺焙手沖｜馥郁柑橘花香與熱帶水果甜感，尾韻乾淨綿長。", img: "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=600&auto=format&fit=crop" }, { id: "c2", name: "巴拿馬 翡翠莊園 綠標藝伎 Geisha", badge: "莊園限量", price: "NT$ 450 / 杯", spec: "極致日式點滴手沖｜標誌性茉莉花香、佛手柑與水蜜桃蜜甜韻。", img: "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=600&auto=format&fit=crop" }, { id: "c3", name: "職人醇厚深焙 濾掛咖啡禮盒 (10入)", badge: "伴手禮首選", price: "NT$ 580 / 盒", spec: "中深焙特調｜黑巧克力與焦糖堅果香氣，居家與球場隨時享受。", img: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "職人裝備嚴選", desc: "日規打擊配重與高規格球具體驗。", tag: "EQUIPMENT", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=800&auto=format&fit=crop", products: [ { id: "e1", name: "日規職人手作 實戰內野手套", badge: "日本牛皮", price: "NT$ 8,800", spec: "日本進口硬式/軟式皮革｜職人刀模定型，極致接球手感與紮實球袋。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" }, { id: "e2", name: "高反發平衡配重 少棒/青少棒打擊棒", badge: "店內可借測", price: "NT$ 6,500", spec: "日規配重設計｜提升揮棒初速與甜蜜點傳導，支援門市實測體驗。", img: "https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=600&auto=format&fit=crop" }, { id: "e3", name: "職業級防滑小羊皮打擊手套組", badge: "實戰必備", price: "NT$ 1,680", spec: "高貼合度立體剪裁｜強化手腕包覆與掌心止滑，揮擊不滑手。", img: "https://images.unsplash.com/photo-1562077772-3bd90403f7f0?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "專業訓練課程", desc: "為運動員與品味人士特調的機能補給與訓練。", tag: "TRAINING", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=800&auto=format&fit=crop", products: [ { id: "t1", name: "日式打擊機制與揮棒軌跡 一對一特訓", badge: "名師指導", price: "NT$ 2,500 / 堂", spec: "60分鐘專項檢測｜結合高速攝影動作分析，精準修正發力順序與擊球仰角。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" }, { id: "t2", name: "內野守備步法與傳球協調專項班", badge: "少棒熱銷", price: "NT$ 1,800 / 堂", spec: "下盤重心轉換與接傳流暢度訓練｜建立日本少棒標準基本功。", img: "https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?q=80&w=600&auto=format&fit=crop" }, { id: "t3", name: "運動員賽前機能咖啡＆修復補給套組", badge: "職人特調", price: "NT$ 880 / 組", spec: "專注力提升手沖飲品＋賽後電解質與優質蛋白補給方案。", img: "https://images.unsplash.com/photo-1511920170033-f8396924c348?q=80&w=600&auto=format&fit=crop" } ] },
+              { title: "台日國際交流", desc: "結合仙台草野塾與台灣少棒的深度交流。", tag: "EXCHANGE", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=800&auto=format&fit=crop", products: [ { id: "x1", name: "日本東北・仙台草野塾 移地訓練專案", badge: "仙台直通", price: "專案預約諮詢", spec: "前日職名將草野大輔親自指導｜結合日式室內訓練場與在地文化深度體驗。", img: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=600&auto=format&fit=crop" }, { id: "x2", name: "台日少棒友誼交流賽＆家庭應援團", badge: "年度盛事", price: "專案預約諮詢", spec: "安排日本在地少棒強權交流賽、球場參訪、隨團翻譯與專業賽事攝影紀錄。", img: "https://images.unsplash.com/photo-1508344928928-7165b67de128?q=80&w=600&auto=format&fit=crop" }, { id: "x3", name: "日本客座教練來台 球團/校隊包班講習", badge: "團體預約", price: "專案預約諮詢", spec: "引進正統日本棒球訓練課表與觀念講座，提供球隊客製化技術升級。", img: "https://images.unsplash.com/photo-1526676037777-05a232554f77?q=80&w=600&auto=format&fit=crop" } ] }
+            ];
+          }
+
+          themes.forEach((theme: any) => {
+            if (theme.products) {
+              const initLength = theme.products.length;
+              theme.products = theme.products.filter((p: any) => !p.name.includes(deleteKeyword));
+              deletedCount += (initLength - theme.products.length);
+            }
+          });
+
+          await client.set("site_themes_json", JSON.stringify(themes));
+          await client.quit();
+
+          await replyLine(
+            replyToken,
+            deletedCount > 0
+              ? `【Sport Cafe 管理助手】\n已成功為您刪除包含「${deleteKeyword}」的商品共 ${deletedCount} 筆！`
+              : `【Sport Cafe 管理助手】\n找不到包含「${deleteKeyword}」的商品。`
+          );
+          continue;
+        }
       }
 
       // 9. 智慧代碼與文字修改核心（用於服務項目文字、顏色、版面調整）
