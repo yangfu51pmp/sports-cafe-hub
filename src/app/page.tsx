@@ -97,11 +97,47 @@ export default function HomePage() {
   const [isScreenshotMode, setIsScreenshotMode] = useState(false);
 
   // Default v6.2 Fallback Script
+
   const DEFAULT_SCRIPT: VideoScript = {
-    title: "SPORT CAFÉ (v6.2)",
-    cover: { journal: "SPORT CAFÉ", date: "2026.10", title: "職人精神 × 少棒熱血應援", subtitle: "極致日式手沖工藝與專業裝備", stamp: "HOT", speaker: "特約教練", speakerRole: "GUEST" },
-    subtitles: [{ start: 0, end: 100, text: "探索 SPORT CAFÉ 的魅力", highlight: "SPORT CAFÉ", color: "#FDE047" }]
+    title: "SPORT CAFÉ (v6.2 雜誌級)",
+    cover: {
+      journal: "SPORT CAFÉ JOURNAL",
+      date: "2026 職人特輯",
+      title: "職人精神 × 少棒熱血應援",
+      subtitle: "極致日式手沖工藝與專業裝備",
+      stamp: "職人嚴選",
+      speaker: "特約教練",
+      speakerRole: "GUEST"
+    },
+    subtitles: [
+      { start: 0.0, end: 2.5, text: "探索 SPORT CAFÉ 的極致魅力", highlight: "極致魅力", color: "#FDE047" },
+      { start: 2.8, end: 5.5, text: "品味正宗的日式手沖工藝", highlight: "手沖工藝", color: "#38BDF8" },
+      { start: 5.8, end: 8.5, text: "親自體驗頂級的職人球具", highlight: "職人球具", color: "#FF6B6B" },
+      { start: 8.8, end: 11.5, text: "為您帶來無與倫比的雙重饗宴", highlight: "雙重饗宴", color: "#FDE047" },
+      { start: 11.8, end: 14.5, text: "感受運動帶來的無限熱情", highlight: "無限熱情", color: "#38BDF8" },
+      { start: 14.8, end: 17.5, text: "提供最好的賽前機能補給", highlight: "機能補給", color: "#FF6B6B" },
+      { start: 17.8, end: 20.5, text: "完美結合職人與少棒精神", highlight: "少棒精神", color: "#FDE047" },
+      { start: 20.8, end: 23.5, text: "立即前來門市預約體驗吧", highlight: "預約體驗", color: "#38BDF8" },
+      { start: 23.8, end: 26.5, text: "給您最高規格的裝備測試", highlight: "裝備測試", color: "#FF6B6B" },
+      { start: 26.8, end: 29.5, text: "讓每一次揮擊都充滿自信", highlight: "充滿自信", color: "#FDE047" }
+    ],
+    events: [
+      { start: 3.5, end: 6.5, type: "qa_bubble", badge: "💬 職人 Q&A 解答", title: "日式手沖的秘密?", text: "精準控制水溫與完美點滴萃取技術", position: "top-right", sfx: "none" },
+      { start: 7.0, end: 10.0, type: "myth_buster", badge: "❌ 動作迷思破解", title: "裝備無法提升表現?", text: "優質日規球具能有效突破物理極限", position: "top-left", sfx: "none" },
+      { start: 10.5, end: 13.5, type: "big_impact", title: "熱血應援", text: "全力支持台灣少棒前進甲子園", position: "bottom-right", sfx: "none" },
+      { start: 14.0, end: 17.0, type: "target_focus", title: "專注核心訓練", text: "引進最新日本職棒等級訓練技術", position: "top-right", sfx: "none" },
+      { start: 17.5, end: 20.5, type: "numbered_pill", number: "01", title: "專業精準評估", text: "客製化打擊姿勢調整與配重建議", position: "bottom-left", sfx: "none" },
+      { start: 21.0, end: 24.0, type: "checklist_card", badge: "✅ 專業檢核重點", title: "品牌核心特色", items: ["日本教練交流", "專業打擊特訓", "獨家機能飲品"], position: "center", sfx: "none" }
+    ],
+    outro: {
+      badge: "SPORT CAFÉ",
+      title: "職人手沖 × 少棒殿堂",
+      points: ["嚴選莊園頂級手沖", "日規實戰球具借測", "日本移地訓練窗口"],
+      signature: "SPORT CAFÉ 專業團隊",
+      cta: "💬 立即點擊下方 LINE 預約體驗"
+    }
   };
+
 
   useEffect(() => {
     // 1. 若網址帶有即時預覽參數，優先同步顯示（確保 LINE 截圖 100% 零延遲拍到最新文字）
