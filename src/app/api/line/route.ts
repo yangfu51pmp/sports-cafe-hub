@@ -381,10 +381,11 @@ async function callAiForVideoScript(prompt: string): Promise<any> {
   return null;
 }
 
-async function generateAiVideoScript(topicPrompt: string, existingScript: string | null): Promise<any> {
+async function generateAiVideoScript(topicPrompt: string, existingScript?: any, previewImageB64?: string): Promise<any> {
   const prompt = existingScript
-    ? `Update the following JSON object based on the user's modification request: "${topicPrompt}". Original JSON: ${existingScript}
-Ensure it conforms EXACTLY to this VideoScript TypeScript interface:
+    ? `根據使用者的修改指令："${topicPrompt}"，更新以下 JSON 物件。原始 JSON: ${typeof existingScript === 'string' ? existingScript : JSON.stringify(existingScript)}
+請確保 100% 繁體中文，嚴禁出現英文句子。
+確保結果完全符合以下 VideoScript TypeScript 介面:
 {
   title?: string;
   cover: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
@@ -392,8 +393,9 @@ Ensure it conforms EXACTLY to this VideoScript TypeScript interface:
   events: Array<{ start: number; end: number; type: "qa_bubble"|"myth_buster"|"big_impact"|"target_focus"|"numbered_pill"|"icon_pill"|"warning_tape"|"progress_card"|"checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left"|"top-right"|"center"|"bottom-left"|"bottom-right"; sfx: "none" }>;
   outro: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
 }
-Return strictly JSON.`
-    : `Generate a JSON object for a short sports promotional video script that conforms EXACTLY to this VideoScript TypeScript interface:
+嚴格回傳 JSON。`
+    : `請產生一個短影音的腳本 JSON 物件，請確保 100% 繁體中文，嚴禁出現英文句子！
+確保結果完全符合以下 VideoScript TypeScript 介面:
 {
   title?: string;
   cover: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
@@ -401,35 +403,85 @@ Return strictly JSON.`
   events: Array<{ start: number; end: number; type: "qa_bubble"|"myth_buster"|"big_impact"|"target_focus"|"numbered_pill"|"icon_pill"|"warning_tape"|"progress_card"|"checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left"|"top-right"|"center"|"bottom-left"|"bottom-right"; sfx: "none" }>;
   outro: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
 }
-Topic / Focus: ${topicPrompt || "職人精神 × 少棒熱血應援"}
-Return strictly JSON.`;
+要求：
+- cover 時間必須是 0.0s~3.2s
+- subtitles 必須有 8 句完整的繁體中文逐句字幕，並設定重點詞 highlight 及顏色 (#FDE047 或 #38BDF8 或 #FF6B6B)
+- events 必須有 6 張不重疊的繁體中文重點字卡，涵蓋各種 type，sfx 固定為 "none"
+- outro 是最後 3.5 秒的總結卡，包含 3 大重點條列與 LINE 行動呼籲
+主題 / 焦點: ${topicPrompt || "SPORT CAFÉ 品牌介紹"}
+嚴格回傳 JSON。`;
 
-  const parsed = await callAiForVideoScript(prompt);
-  if (parsed) return parsed;
+  // callGemini for dynamic generation (no check operations)
+  if (GEMINI_API_KEY) {
+    const models = ["gemini-2.5-flash", "gemini-2.5-pro"];
+    for (const model of models) {
+      try {
+        const body: any = {
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.7
+          }
+        };
 
-  // Fallback if all AI models fail
+        if (previewImageB64) {
+          const mimeType = previewImageB64.startsWith("data:image/png") ? "image/png" : "image/jpeg";
+          const b64Data = previewImageB64.split(",")[1] || previewImageB64;
+          body.contents[0].parts.unshift({
+            inline_data: { mime_type: mimeType, data: b64Data }
+          });
+        }
+
+        const aiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          }
+        );
+
+        if (aiRes.ok) {
+          const data = await aiRes.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+             return JSON.parse(match[0]);
+          }
+        }
+      } catch (e) {
+        console.warn(`generateAiVideoScript failed for model ${model}:`, e);
+      }
+    }
+  }
+
+  // Fallback
   return {
-    title: topicPrompt.slice(0, 18) || "職人精神 × 少棒熱血應援",
-    cover: { journal: "SPORT CAFÉ JOURNAL", date: "2026 SPECIAL", title: topicPrompt.slice(0, 18) || "職人精神 × 少棒熱血應援", subtitle: "極致日式手沖工藝與專業球具訓練空間", stamp: "職人嚴選", speaker: "SPORT CAFÉ", speakerRole: "主理人 & 專業教練團" },
+    title: topicPrompt.slice(0, 18) || "SPORT CAFÉ 品牌介紹",
+    cover: { journal: "SPORT CAFÉ 特刊", date: "2026", title: topicPrompt.slice(0, 18) || " SPORT CAFÉ 職人體驗", subtitle: "極致咖啡與球具", stamp: "職人嚴選", speaker: "SPORT CAFÉ", speakerRole: "專業團隊" },
     subtitles: [
-      { start: 0, end: 2.5, text: "歡迎來到 SPORT CAFÉ", highlight: "SPORT CAFÉ", color: "#FDE047" },
-      { start: 2.8, end: 5.5, text: "體驗極致日式手沖工藝", highlight: "手沖工藝", color: "#38BDF8" },
-      { start: 5.8, end: 8.5, text: "搭配專業職人球具", highlight: "專業職人", color: "#FF6B6B" },
-      { start: 8.8, end: 11.5, text: "讓您在品味的同時", highlight: "品味", color: "#FDE047" },
-      { start: 11.8, end: 14.5, text: "也能享受運動的熱情", highlight: "運動的熱情", color: "#38BDF8" },
-      { start: 14.8, end: 17.5, text: "為您提供最好的補給", highlight: "最好的補給", color: "#FF6B6B" },
-      { start: 17.8, end: 20.5, text: "職人精神，少棒熱血", highlight: "職人精神", color: "#FDE047" },
-      { start: 20.8, end: 23.5, text: "就在 SPORT CAFÉ！", highlight: "SPORT CAFÉ", color: "#38BDF8" }
+      { start: 0, end: 2.5, text: "探索 SPORT CAFÉ 的魅力", highlight: "SPORT CAFÉ", color: "#FDE047" },
+      { start: 2.8, end: 5.5, text: "品味極致的手沖工藝", highlight: "手沖工藝", color: "#38BDF8" },
+      { start: 5.8, end: 8.5, text: "體驗頂級的職人球具", highlight: "職人球具", color: "#FF6B6B" },
+      { start: 8.8, end: 11.5, text: "為您帶來雙重饗宴", highlight: "雙重饗宴", color: "#FDE047" },
+      { start: 11.8, end: 14.5, text: "感受運動的無限熱情", highlight: "無限熱情", color: "#38BDF8" },
+      { start: 14.8, end: 17.5, text: "最好的賽前機能補給", highlight: "機能補給", color: "#FF6B6B" },
+      { start: 17.8, end: 20.5, text: "結合職人與少棒精神", highlight: "少棒精神", color: "#FDE047" },
+      { start: 20.8, end: 23.5, text: "立即前來體驗吧！", highlight: "體驗", color: "#38BDF8" }
     ],
     events: [
-      { start: 3.5, end: 6.5, type: "qa_bubble", title: "日式手沖?", text: "極致點滴工藝，完美萃取", position: "top-right", sfx: "none" },
-      { start: 7.0, end: 10.0, type: "myth_buster", title: "裝備迷思", text: "好的球具能大幅提升表現", position: "top-left", sfx: "none" },
-      { start: 10.5, end: 13.5, type: "big_impact", title: "熱血應援", text: "為少棒選手加油", position: "bottom-right", sfx: "none" },
-      { start: 14.0, end: 17.0, type: "target_focus", title: "專注重點", text: "日本名將指導與交流", position: "top-right", sfx: "none" },
+      { start: 3.5, end: 6.5, type: "qa_bubble", title: "日式手沖?", text: "完美點滴萃取", position: "top-right", sfx: "none" },
+      { start: 7.0, end: 10.0, type: "myth_buster", title: "裝備提升", text: "優質球具突破極限", position: "top-left", sfx: "none" },
+      { start: 10.5, end: 13.5, type: "big_impact", title: "熱血應援", text: "支持台灣少棒", position: "bottom-right", sfx: "none" },
+      { start: 14.0, end: 17.0, type: "target_focus", title: "專注訓練", text: "引進日本技術", position: "top-right", sfx: "none" },
       { start: 17.5, end: 20.5, type: "numbered_pill", number: "01", text: "專業評估", position: "bottom-left", sfx: "none" },
-      { start: 21.0, end: 24.0, type: "checklist_card", title: "獨家特色", items: ["日本仙台交流", "一對一特訓", "機能咖啡"], position: "center", sfx: "none" }
+      { start: 21.0, end: 24.0, type: "checklist_card", title: "品牌特色", items: ["日本交流", "專業特訓", "機能飲品"], position: "center", sfx: "none" }
     ],
-    outro: { badge: "SPORT CAFÉ", title: "職人手沖 × 台日少棒交流殿堂", points: ["嚴選莊園手沖與運動員機能補給", "日規實戰球具借測與一對一打擊特訓", "日本仙台草野塾移地訓練直通窗口"], signature: "SPORT CAFÉ 職人團隊", cta: "立即點擊下方 LINE 預約體驗" }
+    outro: { badge: "SPORT CAFÉ", title: "職人手沖 × 少棒殿堂", points: ["嚴選莊園手沖", "日規實戰球具借測", "日本移地訓練窗口"], signature: "SPORT CAFÉ 團隊", cta: "點擊下方 LINE 預約" }
   };
 }
 
@@ -989,6 +1041,19 @@ export async function POST(req: NextRequest) {
             const newVideoUrl = rawText;
             await client.set("site_promo_video_draft", newVideoUrl);
             await client.del("awaiting_video_upload");
+
+            // Re-generate script using the new video (if possible to fetch a preview, but here we just re-trigger for the topic)
+            const draftScriptStr = await client.get("site_ai_video_script_draft");
+            let topic = "SPORT CAFÉ 品牌介紹";
+            if (draftScriptStr) {
+              try {
+                const s = JSON.parse(draftScriptStr);
+                topic = s.title || topic;
+              } catch(e) {}
+            }
+            const newScript = await generateAiVideoScript(topic);
+            await client.set("site_ai_video_script_draft", JSON.stringify(newScript));
+
             await client.quit();
 
             try { revalidatePath("/"); } catch {}
