@@ -100,7 +100,7 @@ export default function HomePage() {
   const DEFAULT_SCRIPT: VideoScript = {
     title: "SPORT CAFÉ (v6.2)",
     cover: { journal: "SPORT CAFÉ", date: "2026.10", title: "職人精神 × 少棒熱血應援", subtitle: "極致日式手沖工藝與專業裝備", stamp: "HOT", speaker: "特約教練", speakerRole: "GUEST" },
-    subtitles: [{ start: 0, end: 100, text: "歡迎來到 SPORT CAFÉ", highlight: "SPORT CAFÉ", color: "#FDE047" }]
+    subtitles: [{ start: 0, end: 100, text: "探索 SPORT CAFÉ 的魅力", highlight: "SPORT CAFÉ", color: "#FDE047" }]
   };
 
   useEffect(() => {
@@ -427,11 +427,11 @@ export default function HomePage() {
         {/* 4.5. Second Layer UI: Full-Screen Theme Products Modal */}
         {activeThemeIndex !== null && themes[activeThemeIndex] && (
           <div
-            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
+            className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
             onClick={() => setActiveThemeIndex(null)}
           >
             <div
-              className="bg-[#FAF7F2] w-full max-w-4xl max-h-[88vh] rounded-3xl overflow-hidden shadow-2xl border border-[#C8A97E]/40 flex flex-col"
+              className="bg-[#FAF7F2] w-full max-w-4xl max-h-[86vh] rounded-3xl shadow-2xl border border-[#C8A97E]/40 flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="bg-[#6B1D2F] text-white px-6 py-5 flex items-center justify-between shrink-0">
@@ -452,46 +452,46 @@ export default function HomePage() {
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
-                {themes[activeThemeIndex].products?.map((product, pIdx) => (
-                  <div key={pIdx} className="bg-white rounded-2xl overflow-hidden shadow-md border border-stone-200/80 flex flex-col justify-between group">
-                    <div>
-                      <div className="relative">
-                        <img src={product.img} alt={product.name} className="h-44 w-full object-cover group-hover:scale-105 transition duration-500" />
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 overscroll-contain">
+                <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-8">
+                  {themes[activeThemeIndex].products?.map((product, pIdx) => (
+                    <div key={pIdx} className="bg-white rounded-2xl shadow-md border border-stone-200 flex flex-col justify-between shrink-0 group">
+                      <div className="relative h-44 w-full overflow-hidden rounded-t-2xl shrink-0 bg-stone-100">
+                        <img src={product.img.replace('photo-1526676037777-05a232554f77', 'photo-1517701550927-30cf4ba1dba5')} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition duration-500" />
                         <div className="absolute top-3 left-3 bg-[#6B1D2F] text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md">
                           {product.badge}
                         </div>
                       </div>
-                      <div className="p-4">
-                        <h4 className="font-bold text-stone-900 text-sm mb-1">{product.name}</h4>
-                        <div className="text-[#C8A97E] font-bold text-sm mb-2">{product.price}</div>
-                        <p className="text-xs text-stone-500 leading-relaxed line-clamp-3">{product.spec}</p>
+                      <div className="p-4 flex flex-col flex-1 justify-between gap-3 bg-white rounded-b-2xl">
+                        <div>
+                          <h4 className="font-bold text-stone-900 text-sm mb-1">{product.name}</h4>
+                          <div className="text-[#C8A97E] font-bold text-sm mb-2">{product.price}</div>
+                          <p className="text-xs text-stone-500 leading-relaxed line-clamp-3">{product.spec}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const msg = `您好！我想詢問或購買 SPORT CAFÉ【${themes[activeThemeIndex].title}】的「${product.name}（${product.price}）」！\n規格說明：${product.spec}`;
+                            if (navigator.clipboard) {
+                              navigator.clipboard.writeText(msg).catch(() => {});
+                            }
+                            setToastMsg("已複製商品訊息，為您跳轉 LINE！");
+                            setTimeout(() => setToastMsg(""), 3000);
+                            window.open(`https://line.me/R/msg/text/?${encodeURIComponent(msg)}`, "_blank");
+                          }}
+                          className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+                        >
+                          💬 點此 LINE 詢問／購買 (v1.2)
+                        </button>
                       </div>
                     </div>
-                    <div className="p-4 pt-0">
-                      <button
-                        onClick={() => {
-                          const msg = `您好！我想詢問 SPORT CAFÉ【${themes[activeThemeIndex].title}】的「${product.name} (${product.price})」詳情！`;
-                          if (navigator.clipboard) {
-                            navigator.clipboard.writeText(msg).catch(() => {});
-                          }
-                          setToastMsg("已複製商品訊息，為您跳轉 LINE！");
-                          setTimeout(() => setToastMsg(""), 3000);
-                          window.open(`https://line.me/R/msg/text/?${encodeURIComponent(msg)}`, "_blank");
-                        }}
-                        className="w-full bg-[#06C755] hover:bg-[#05b34c] text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
-                      >
-                        💬 點此 LINE 詢問／購買
-                      </button>
+                  ))}
+                  {(!themes[activeThemeIndex].products || themes[activeThemeIndex].products.length === 0) && (
+                    <div className="col-span-full py-12 text-center text-stone-500 text-sm flex flex-col items-center gap-3">
+                      <span className="text-3xl opacity-50">☕</span>
+                      此主題目前尚無專屬商品，敬請期待！
                     </div>
-                  </div>
-                ))}
-                {(!themes[activeThemeIndex].products || themes[activeThemeIndex].products.length === 0) && (
-                  <div className="col-span-full py-12 text-center text-stone-500 text-sm flex flex-col items-center gap-3">
-                    <span className="text-3xl opacity-50">☕</span>
-                    此主題目前尚無專屬商品，敬請期待！
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>

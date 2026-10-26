@@ -53,6 +53,12 @@ export interface VideoScript {
   outro?: OutroSpec;
 }
 
+declare global {
+  interface Window {
+    __isExporting?: boolean;
+  }
+}
+
 export interface AiVideoPlayerProps {
   videoUrl: string;
   posterUrl?: string;
@@ -64,6 +70,7 @@ export interface AiVideoPlayerProps {
 export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMode = false, defaultVertical = false }: AiVideoPlayerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const rawAudioBufferRef = useRef<ArrayBuffer | null>(null);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -80,6 +87,16 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
   useEffect(() => {
     setIsVertical(defaultVertical);
   }, [defaultVertical]);
+
+  useEffect(() => {
+    // 1. Fetch video array buffer in background
+    fetch(videoUrl)
+      .then(res => res.arrayBuffer())
+      .then(buffer => {
+        rawAudioBufferRef.current = buffer;
+      })
+      .catch(console.error);
+  }, [videoUrl]);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -104,8 +121,49 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
-      setDuration(videoRef.current.duration);
+      const dur = videoRef.current.duration;
+      setDuration(dur);
       setIsVertical(videoRef.current.videoHeight > videoRef.current.videoWidth);
+
+      // Scale script timing if video is long
+      if (dur > 12 && script) {
+        const lastCardEnd = script.events && script.events.length > 0
+          ? Math.max(...script.events.map((e) => e.end))
+          : (script.subtitles && script.subtitles.length > 0 ? Math.max(...script.subtitles.map((s) => s.end)) : 0);
+
+        if (lastCardEnd < dur - 4) {
+          const contentStart = 3.3;
+          const contentEnd = dur - 3.6;
+          const originalDuration = lastCardEnd - contentStart;
+          const newDuration = contentEnd - contentStart;
+          const scaleRatio = newDuration / (originalDuration || 1);
+
+          if (script.subtitles) {
+            script.subtitles = script.subtitles.map(sub => {
+              if (sub.start >= contentStart) {
+                return {
+                  ...sub,
+                  start: contentStart + (sub.start - contentStart) * scaleRatio,
+                  end: contentStart + (sub.end - contentStart) * scaleRatio
+                };
+              }
+              return sub;
+            });
+          }
+          if (script.events) {
+            script.events = script.events.map(ev => {
+              if (ev.start >= contentStart) {
+                return {
+                  ...ev,
+                  start: contentStart + (ev.start - contentStart) * scaleRatio,
+                  end: contentStart + (ev.end - contentStart) * scaleRatio
+                };
+              }
+              return ev;
+            });
+          }
+        }
+      }
     }
   };
 
@@ -202,16 +260,14 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-10 font-sans">
         {/* Cover */}
         {isCoverActive && script.cover && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 bg-black/40 animate-fade-in">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-6 bg-black/40 animate-fade-in">
             {script.cover.journal && (
-              <div className="absolute top-6 w-full text-center">
-                <div className="inline-block bg-[#C8A97E] text-white px-4 py-1.5 text-xs font-bold tracking-[0.2em] rounded-full shadow-lg">
-                  {script.cover.journal} {script.cover.date ? `| ${script.cover.date}` : ''}
-                </div>
+              <div className="inline-block bg-[#C8A97E] text-white px-4 py-1.5 text-xs font-bold tracking-[0.2em] rounded-full shadow-lg shrink-0 mt-6">
+                {script.cover.journal} {script.cover.date ? `| ${script.cover.date}` : ''}
               </div>
             )}
 
-            <div className="bg-[rgba(15,23,42,0.92)] border-2 border-[#C8A97E] rounded-2xl p-6 w-full max-w-sm shadow-2xl relative">
+            <div className="bg-[rgba(15,23,42,0.92)] border-2 border-[#C8A97E] rounded-2xl p-6 w-full max-w-sm shadow-2xl relative shrink-0">
               {script.cover.stamp && (
                 <div className="absolute -top-4 -right-4 w-16 h-16 bg-[#6B1D2F] rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-[#C8A97E] transform rotate-12 shadow-lg z-10">
                   {script.cover.stamp}
@@ -230,7 +286,7 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
             </div>
 
             {script.cover.speaker && (
-              <div className="absolute bottom-16 left-4 bg-white/95 rounded-lg px-4 py-2 shadow-xl border-l-4 border-[#6B1D2F] flex flex-col">
+              <div className="bg-white/95 rounded-lg px-4 py-2 shadow-xl border-l-4 border-[#6B1D2F] flex flex-col self-start shrink-0 mb-6">
                 <span className="text-[#6B1D2F] text-[10px] font-bold tracking-wider uppercase mb-0.5">{script.cover.speakerRole || 'GUEST'}</span>
                 <span className="text-stone-900 text-base font-bold">{script.cover.speaker}</span>
               </div>
@@ -598,7 +654,7 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
     }
   };
 
-  const exportVideo = async () => {
+  const exportVideo = () => {
     if (!videoRef.current || !script) return;
     const vid = videoRef.current;
 
@@ -606,99 +662,109 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
     setExportProgress(0);
     setExportedFile(null);
 
-    try {
-      // 1. Fetch video array buffer
-      const res = await fetch(videoUrl);
-      const arrayBuffer = await res.arrayBuffer();
+    // 0 延遲同步啟動匯出架構
+    vid.loop = false;
+    vid.muted = true; // guarantee autoplay on iOS Safari
+    vid.currentTime = 0;
+    vid.play().catch(console.error);
 
-      // 2. Decode audio
-      const audioCtx = new window.AudioContext();
-      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    const audioCtx = new window.AudioContext();
+    const audioDest = audioCtx.createMediaStreamDestination();
+    let sourceNode: AudioBufferSourceNode | null = null;
+    let dur = vid.duration || 15;
 
-      // 3. Setup canvas
-      const rawW = vid.videoWidth;
-      const rawH = vid.videoHeight;
-      const w = rawW & ~1; // Must be even
-      const h = rawH & ~1;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Could not get 2D context");
-
-      // 4. Setup MediaRecorder
-      const stream = canvas.captureStream(30);
-
-      // Add audio track
-      const audioDest = audioCtx.createMediaStreamDestination();
-      const sourceNode = audioCtx.createBufferSource();
-      sourceNode.buffer = audioBuffer;
-      sourceNode.connect(audioDest);
-      // Connect to output so we hear it (optional during export, but safe)
-      sourceNode.connect(audioCtx.destination);
-
-      audioDest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
-
-      let mimeType = "video/webm";
-      if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1,mp4a.40.2")) {
-        mimeType = "video/mp4;codecs=avc1,mp4a.40.2";
-      } else if (MediaRecorder.isTypeSupported("video/mp4")) {
-        mimeType = "video/mp4";
-      }
-
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
-      const chunks: Blob[] = [];
-
-      recorder.ondataavailable = e => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: mimeType });
-        const fileExt = mimeType.includes("mp4") ? "mp4" : "webm";
-        const file = new File([blob], `sport-cafe-v6.2.${fileExt}`, { type: mimeType });
-        setExportedFile(file);
-        setIsExporting(false);
-        setExportProgress(100);
-      };
-
-      // 5. Playback loop
-      vid.currentTime = 0;
-      await vid.play();
-      sourceNode.start(0);
-      recorder.start();
-
-      const dur = vid.duration || (audioBuffer.duration);
-
-      const drawFrame = () => {
-        if (!isExporting) return; // aborted
-
-        const t = vid.currentTime;
-        setExportProgress((t / dur) * 100);
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(vid, 0, 0, w, h);
-        drawOverlay(ctx, w, h, t, dur);
-
-        if (t < dur && !vid.paused && !vid.ended) {
-          requestAnimationFrame(drawFrame);
-        } else {
-          // Done
-          vid.pause();
-          recorder.stop();
-          sourceNode.stop();
-        }
-      };
-
-      drawFrame();
-
-    } catch (err) {
-      console.error("Export failed:", err);
-      setIsExporting(false);
-      alert("匯出失敗，請重試或使用電腦操作。");
+    // Decode audio in non-blocking background
+    if (rawAudioBufferRef.current) {
+      Promise.race([
+        audioCtx.decodeAudioData(rawAudioBufferRef.current.slice(0)),
+        new Promise<AudioBuffer>((_, reject) => setTimeout(() => reject(new Error("Audio decode timeout")), 2500))
+      ]).then((audioBuffer) => {
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = audioBuffer;
+        sourceNode.connect(audioDest);
+        sourceNode.connect(audioCtx.destination);
+        sourceNode.start(0);
+        if (audioBuffer.duration > dur) dur = audioBuffer.duration;
+      }).catch((err) => {
+        console.warn("Audio decode failed or timed out, continuing without audio", err);
+      });
     }
+
+    const rawW = vid.videoWidth;
+    const rawH = vid.videoHeight;
+    const w = rawW & ~1;
+    const h = rawH & ~1;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const stream = canvas.captureStream(30);
+    audioDest.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+
+    let mimeType = "video/webm";
+    if (MediaRecorder.isTypeSupported("video/mp4;codecs=avc1,mp4a.40.2")) {
+      mimeType = "video/mp4;codecs=avc1,mp4a.40.2";
+    } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+      mimeType = "video/mp4";
+    }
+
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 5000000 });
+    const chunks: Blob[] = [];
+
+    recorder.ondataavailable = e => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(chunks, { type: mimeType });
+      const fileExt = mimeType.includes("mp4") ? "mp4" : "webm";
+      const file = new File([blob], `sport-cafe-v6.2.${fileExt}`, { type: mimeType });
+      setExportedFile(file);
+      setIsExporting(false);
+      setExportProgress(100);
+      vid.muted = isMuted; // restore original state
+    };
+
+    recorder.start(200);
+
+    const drawFrame = () => {
+      // Allow early stop or natural end
+      const isStoppedEarly = !window.__isExporting;
+
+      const t = vid.currentTime;
+      setExportProgress((t / dur) * 100);
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(vid, 0, 0, w, h);
+      drawOverlay(ctx, w, h, t, dur);
+
+      if (!isStoppedEarly && t < dur && !vid.ended) {
+        if (vid.paused) vid.play().catch(() => {});
+        requestAnimationFrame(drawFrame);
+      } else {
+        vid.pause();
+        recorder.stop();
+        if (sourceNode) sourceNode.stop();
+      }
+    };
+
+    window.__isExporting = true;
+    drawFrame();
   };
+
+  const stopExportEarly = () => {
+    window.__isExporting = false;
+  };
+
+  useEffect(() => {
+    // Cleanup early stop flag on unmount
+    return () => {
+      window.__isExporting = false;
+    };
+  }, []);
 
   const renderExportPanel = () => {
     if (!isPreviewMode) return null;
@@ -714,40 +780,54 @@ export default function AiVideoPlayer({ videoUrl, posterUrl, script, isPreviewMo
           </p>
 
           {!exportedFile ? (
-            <button
-              onClick={exportVideo}
-              disabled={isExporting}
-              className={`w-full py-3 rounded-xl text-sm font-bold text-white transition shadow-sm ${
-                isExporting ? "bg-stone-400 cursor-not-allowed" : "bg-[#6B1D2F] hover:bg-[#5a1827]"
-              }`}
-            >
-              {isExporting ? `正在合成影片中... ${Math.round(exportProgress)}%` : "🎬 匯出有聲 MP4 影片 (v6.2)"}
-            </button>
+            isExporting ? (
+              <button
+                onClick={stopExportEarly}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition shadow-sm flex items-center justify-center gap-2"
+              >
+                ⏹ 提前完成並產生 MP4 檔案 (目前 {Math.round(exportProgress)}%)
+              </button>
+            ) : (
+              <button
+                onClick={exportVideo}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white bg-[#6B1D2F] hover:bg-[#5a1827] transition shadow-sm"
+              >
+                🎬 匯出有聲 MP4 影片 (v6.2)
+              </button>
+            )
           ) : (
             <div className="flex flex-col gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
               <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
                 <span>✅</span> 匯出成功！
               </div>
-              <button
-                onClick={() => {
-                  if (navigator.share) {
-                    navigator.share({
-                      files: [exportedFile],
-                      title: script?.title || "SPORT CAFÉ Video",
-                    }).catch(console.error);
-                  } else {
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        files: [exportedFile]
+                      }).catch(console.error);
+                    }
+                  }}
+                  className="flex-1 py-3 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#06C755] hover:bg-[#05b34c] transition shadow-sm"
+                >
+                  📲 儲存到 iPhone 相簿 / 傳送至 LINE (v6.2)
+                </button>
+                <button
+                  onClick={() => {
                     const url = URL.createObjectURL(exportedFile);
                     const a = document.createElement("a");
                     a.href = url;
                     a.download = exportedFile.name || "sport-cafe-v6.2.mp4";
                     a.click();
                     URL.revokeObjectURL(url);
-                  }
-                }}
-                className="w-full py-3 rounded-xl text-sm font-bold text-white bg-[#06C755] hover:bg-[#05b34c] transition shadow-sm"
-              >
-                📲 儲存到 iPhone 相簿 / 傳送至 LINE (v6.2)
-              </button>
+                  }}
+                  className="w-12 sm:w-auto px-3 py-3 rounded-xl text-xs sm:text-sm font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 transition shadow-sm flex items-center justify-center"
+                  title="直接下載 MP4 影片檔 (v6.2)"
+                >
+                  💾
+                </button>
+              </div>
             </div>
           )}
         </div>
