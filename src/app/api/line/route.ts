@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "redis";
@@ -100,7 +100,11 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const [site_title, site_announcement, site_announcement_url, site_hero_image, site_promo_video, site_promo_video_title, site_promo_poster, site_promo_orientation, site_themes_json] = await Promise.all([
+    const [
+      site_title, site_announcement, site_announcement_url, site_hero_image,
+      site_promo_video, site_promo_video_title, site_promo_poster, site_promo_orientation, site_themes_json,
+      site_ai_video_script, site_promo_video_draft, site_ai_video_script_draft
+    ] = await Promise.all([
       client.get("site_title"),
       client.get("site_announcement"),
       client.get("site_announcement_url"),
@@ -110,6 +114,9 @@ export async function GET(req: NextRequest) {
       client.get("site_promo_poster"),
       client.get("site_promo_orientation"),
       client.get("site_themes_json"),
+      client.get("site_ai_video_script"),
+      client.get("site_promo_video_draft"),
+      client.get("site_ai_video_script_draft"),
     ]);
     await client.quit();
 
@@ -129,6 +136,9 @@ export async function GET(req: NextRequest) {
         site_promo_poster: site_promo_poster || "",
         site_promo_orientation: site_promo_orientation || "",
         site_themes: site_themes,
+        site_ai_video_script: site_ai_video_script || null,
+        site_promo_video_draft: site_promo_video_draft || "",
+        site_ai_video_script_draft: site_ai_video_script_draft || null,
         _t,
       },
       {
@@ -377,6 +387,36 @@ async function callGeminiJson(prompt: string, textOnly = false): Promise<{ summa
 
 
 // 呼叫 OpenRouter API
+
+async function callOpenRouterString(prompt: string, models: string[]): Promise<string> {
+  if (!OPENROUTER_API_KEY) return "";
+
+  for (const model of models) {
+    try {
+      const aiRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      if (!aiRes.ok) continue;
+
+      const data = await aiRes.json();
+      const rawText = data.choices?.[0]?.message?.content || "";
+      if (rawText) return rawText;
+    } catch (e) {
+      console.error("Error with model", model, e);
+    }
+  }
+  return "";
+}
+
 async function callOpenRouterJson(prompt: string, models: string[]): Promise<{ summary?: string; operations?: Array<{ search: string; replace: string }>; translatedPrompt?: string; modelName?: string; error?: string }> {
   if (!OPENROUTER_API_KEY) return { error: "尚未設定 OPENROUTER_API_KEY" };
 
@@ -761,7 +801,7 @@ export async function POST(req: NextRequest) {
                   const siteUrl = req.nextUrl.origin;
                   const newVideoUrl = `${siteUrl}/promo.mp4?v=${Date.now()}`;
 
-                  await client.set("site_promo_video", newVideoUrl);
+                  await client.set("site_promo_video_draft", newVideoUrl);
 
                   // Fetch and save video thumbnail
                   try {
@@ -782,13 +822,38 @@ export async function POST(req: NextRequest) {
                     console.error("Failed to fetch video preview:", e);
                   }
 
+                  // Auto-generate script if not exists
+                  const existingScript = await client.get("site_ai_video_script_draft");
+                  if (!existingScript) {
+                     const prompt = `Generate a JSON object for a short sports promotional video script that conforms EXACTLY to this VideoScript TypeScript interface:
+                     {
+                       title?: string;
+                       cover?: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
+                       subtitles?: Array<{ start: number; end: number; text: string; highlight?: string; color?: string }>;
+                       events?: Array<{ start: number; end: number; type: "qa_bubble" | "myth_buster" | "big_impact" | "target_focus" | "numbered_pill" | "icon_pill" | "warning_tape" | "progress_card" | "checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; sfx?: "none" }>;
+                       outro?: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
+                     }
+                     Theme: SPORT CAFÉ 職人精神 × 少棒熱血應援
+                     Output only valid JSON, no markdown formatting.`;
+
+                     try {
+                       const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+                       if (aiRes) {
+                         const match = aiRes.match(/\{[\s\S]*\}/);
+                         if (match) {
+                           await client.set("site_ai_video_script_draft", match[0]);
+                         }
+                       }
+                     } catch(e) {}
+                  }
+
                   await client.quit();
 
                   try { revalidatePath("/"); } catch {}
 
                   await replyLine(
                     replyToken,
-                    "✅ 已成功接收您的影片（自動適配橫式／直式比例）並推送至 GitHub！Vercel 正在背景部署中（約 20 秒後生效），稍後請輸入『截圖』驗收！"
+                    `✅ 已成功接收您的影片並推送至內部審片室！請點擊下方連結預覽審片：\n${siteUrl}/?preview=video\n\n（若需確認上架，請回覆「確認上架影片」）`
                   );
                   continue;
                 } else {
@@ -828,17 +893,17 @@ export async function POST(req: NextRequest) {
 
           if (awaitingVideoUpload === "1") {
             const newVideoUrl = rawText;
-            await client.set("site_promo_video", newVideoUrl);
+            await client.set("site_promo_video_draft", newVideoUrl);
             await client.del("awaiting_video_upload");
             await client.quit();
 
             try { revalidatePath("/"); } catch {}
 
-            const screenshot = await captureWebsiteScreenshot(undefined, undefined, undefined, newVideoUrl);
+            const siteUrl = req.nextUrl.origin;
+
             await replyLine(
               replyToken,
-              `【Sport Cafe 管理助手】\n已成功接收並更新網站影片：\n${newVideoUrl}\n\n官網已即時生效：\nhttps://sports-cafe-hub.vercel.app`,
-              screenshot
+              `【Sport Cafe 管理助手】\n已成功接收影片網址並推送至內部審片室！請點擊下方連結預覽審片：\n${siteUrl}/?preview=video\n\n（若需確認上架，請回覆「確認上架影片」）`
             );
             continue;
           }
@@ -861,6 +926,185 @@ export async function POST(req: NextRequest) {
         if (!isGroupChat) {
           await replyLine(replyToken, "【Sport Cafe】抱歉，您尚未獲得管理員授權。");
         }
+        continue;
+      }
+
+
+      // v6.2 AI 製片 Commands
+      const aiVideoGenMatch = cleanText.match(/^AI製片[：:]\s*(.+)$/i);
+      if (aiVideoGenMatch && REDIS_URL) {
+        const theme = aiVideoGenMatch[1].trim();
+        const prompt = `Generate a JSON object for a short sports promotional video script that conforms EXACTLY to this VideoScript TypeScript interface:
+                     {
+                       title?: string;
+                       cover?: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
+                       subtitles?: Array<{ start: number; end: number; text: string; highlight?: string; color?: string }>;
+                       events?: Array<{ start: number; end: number; type: "qa_bubble" | "myth_buster" | "big_impact" | "target_focus" | "numbered_pill" | "icon_pill" | "warning_tape" | "progress_card" | "checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; sfx?: "none" }>;
+                       outro?: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
+                     }
+                     Theme: ${theme}
+                     Output only valid JSON, no markdown formatting.`;
+
+        try {
+          const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+          if (aiRes) {
+            const match = aiRes.match(/\{[\s\S]*\}/);
+            if (match) {
+              const client = createClient({ url: REDIS_URL });
+              await client.connect();
+              await client.set("site_ai_video_script_draft", match[0]);
+              await client.set("awaiting_video_upload", "1", { EX: 300 });
+              await client.quit();
+
+              const siteUrl = req.nextUrl.origin;
+              try { revalidatePath("/"); } catch {}
+
+              await replyLine(
+                replyToken,
+                `✅ 已為「${theme}」生成全新 v6.2 AI 影片腳本！
+
+您現在可以上傳影片檔案，或是點擊下方連結進入內部審片室預覽疊加效果：
+${siteUrl}/?preview=video`
+              );
+              continue;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        await replyLine(replyToken, "❌ 生成腳本失敗，請稍後再試。");
+        continue;
+      }
+
+      const aiVideoModifyMatch = cleanText.match(/^修改製片[：:]\s*(.+)$/i);
+      if (aiVideoModifyMatch && REDIS_URL) {
+        const modifyReq = aiVideoModifyMatch[1].trim();
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        const existingScript = await client.get("site_ai_video_script_draft") || await client.get("site_ai_video_script");
+
+        const prompt = `Update the following JSON object based on the user's modification request: "${modifyReq}".
+                     Original JSON: ${existingScript || "{}"}
+                     Ensure it conforms EXACTLY to this VideoScript TypeScript interface:
+                     {
+                       title?: string;
+                       cover?: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
+                       subtitles?: Array<{ start: number; end: number; text: string; highlight?: string; color?: string }>;
+                       events?: Array<{ start: number; end: number; type: "qa_bubble" | "myth_buster" | "big_impact" | "target_focus" | "numbered_pill" | "icon_pill" | "warning_tape" | "progress_card" | "checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; sfx?: "none" }>;
+                       outro?: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
+                     }
+                     Output only valid JSON, no markdown formatting.`;
+
+        try {
+          const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+          if (aiRes) {
+            const match = aiRes.match(/\{[\s\S]*\}/);
+            if (match) {
+              await client.set("site_ai_video_script_draft", match[0]);
+              await client.quit();
+
+              const siteUrl = req.nextUrl.origin;
+              try { revalidatePath("/"); } catch {}
+
+              await replyLine(
+                replyToken,
+                `✅ 已根據您的要求修改 v6.2 AI 影片腳本！請點擊下方連結預覽：
+${siteUrl}/?preview=video`
+              );
+              continue;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        await client.quit();
+        await replyLine(replyToken, "❌ 修改腳本失敗，請稍後再試。");
+        continue;
+      }
+
+      if (cleanText === "重新製片" && REDIS_URL) {
+        const prompt = `Generate a JSON object for a short sports promotional video script that conforms EXACTLY to this VideoScript TypeScript interface:
+                     {
+                       title?: string;
+                       cover?: { journal?: string; date?: string; title: string; subtitle?: string; stamp?: string; speaker?: string; speakerRole?: string };
+                       subtitles?: Array<{ start: number; end: number; text: string; highlight?: string; color?: string }>;
+                       events?: Array<{ start: number; end: number; type: "qa_bubble" | "myth_buster" | "big_impact" | "target_focus" | "numbered_pill" | "icon_pill" | "warning_tape" | "progress_card" | "checklist_card"; title?: string; subtitle?: string; text?: string; badge?: string; icon?: string; number?: string; progress?: number; items?: string[]; position?: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-right"; sfx?: "none" }>;
+                       outro?: { badge?: string; title: string; points: string[]; signature?: string; cta?: string };
+                     }
+                     Theme: SPORT CAFÉ 職人精神 × 少棒熱血應援 (Alternative fresh take)
+                     Output only valid JSON, no markdown formatting.`;
+
+        try {
+          const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+          if (aiRes) {
+            const match = aiRes.match(/\{[\s\S]*\}/);
+            if (match) {
+              const client = createClient({ url: REDIS_URL });
+              await client.connect();
+              await client.set("site_ai_video_script_draft", match[0]);
+              await client.quit();
+
+              const siteUrl = req.nextUrl.origin;
+              try { revalidatePath("/"); } catch {}
+
+              await replyLine(
+                replyToken,
+                `✅ 已重新生成 v6.2 AI 影片腳本！請點擊下方連結預覽：
+${siteUrl}/?preview=video`
+              );
+              continue;
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        await replyLine(replyToken, "❌ 重新生成腳本失敗，請稍後再試。");
+        continue;
+      }
+
+      if (cleanText === "確認上架影片" && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        const draftVideo = await client.get("site_promo_video_draft");
+        const draftScript = await client.get("site_ai_video_script_draft");
+
+        if (draftVideo) await client.set("site_promo_video", draftVideo);
+        if (draftScript) await client.set("site_ai_video_script", draftScript);
+
+        // Clean up drafts
+        await client.del("site_promo_video_draft");
+        await client.del("site_ai_video_script_draft");
+
+        await client.quit();
+
+        const siteUrl = req.nextUrl.origin;
+        try { revalidatePath("/"); } catch {}
+
+        await replyLine(
+          replyToken,
+          `🎉 影片與 v6.2 AI 腳本已成功發布至正式環境！
+官網已即時生效：
+${siteUrl}`
+        );
+        continue;
+      }
+
+      if (cleanText === "取消上架影片" && REDIS_URL) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+
+        await client.del("site_promo_video_draft");
+        await client.del("site_ai_video_script_draft");
+        await client.del("site_ai_video_script");
+
+        await client.quit();
+
+        try { revalidatePath("/"); } catch {}
+
+        await replyLine(
+          replyToken,
+          `🚫 已取消影片上架並清除草稿。`
+        );
         continue;
       }
 
