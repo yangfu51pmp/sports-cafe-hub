@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "redis";
+import { runSystemCleanup } from "@/lib/cleanup";
 
 export const maxDuration = 60;
 
@@ -1773,6 +1774,19 @@ ${siteUrl}`
           );
           continue;
         }
+      }
+
+      // 8.5 空間清理指令
+      const cleanupKeywords = ["清理空間", "清理舊檔", "清除快取"];
+      if (cleanupKeywords.some((kw) => cleanText.includes(kw))) {
+        const client = createClient({ url: REDIS_URL });
+        await client.connect();
+        // Option to add tempKeys here if needed
+        const summary = await runSystemCleanup(client);
+        await client.quit();
+
+        await replyLine(replyToken, summary);
+        continue;
       }
 
       // 9. 智慧代碼與文字修改核心（用於服務項目文字、顏色、版面調整）
