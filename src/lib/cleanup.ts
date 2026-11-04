@@ -1,71 +1,70 @@
 export async function runSystemCleanup(client?: any, tempKeys: string[] = []): Promise<string> {
-  let summary = "🧹 Sport Café 系統空間清理完畢...\n";
-  let redisCleaned = 0;
-  let vercelCleaned = 0;
+  const releasedKeys: string[] = [];
+  let vercelStatus = "";
 
   // 1. Clean Redis keys if client and keys are provided
   if (client && tempKeys.length > 0) {
-    try {
-      for (const key of tempKeys) {
+    for (const key of tempKeys) {
+      try {
         await client.del(key);
-        redisCleaned++;
+        releasedKeys.push(key);
+      } catch (e) {
+        console.error(`Redis cleanup error for key ${key}:`, e);
       }
-      summary += `- 已清除 ${redisCleaned} 筆暫存緩存\n`;
-    } catch (e) {
-      console.error("Redis cleanup error:", e);
     }
   }
 
   // 2. Clean Vercel deployments scoped to this project
   const vercelToken = process.env.VERCEL_TOKEN;
-  if (vercelToken) {
+  if (!vercelToken) {
+    vercelStatus = "無 Vercel Token，跳過部署清理";
+  } else {
     try {
-      const projectId = process.env.VERCEL_PROJECT_ID;
-      const scopeParam = projectId ? `projectId=${encodeURIComponent(projectId)}` : `app=sports-cafe-hub`;
-      const listUrl = `https://api.vercel.com/v6/deployments?limit=30&${scopeParam}`;
-
+      const listUrl = "https://api.vercel.com/v6/deployments?app=sports-cafe-hub&limit=30";
       const res = await fetch(listUrl, {
         headers: {
           "Authorization": `Bearer ${vercelToken}`
         }
       });
 
-      if (res.ok) {
+      if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        vercelStatus = `HTTP ${res.status} - ${errorText || res.statusText}`;
+      } else {
         const data = await res.json();
         const deployments = data.deployments || [];
 
-        let readyCount = 0;
+        let readyKept = 0;
+        let deletedCount = 0;
 
         for (const d of deployments) {
           const state = d.state || d.readyState;
 
           if (state === "READY") {
-            readyCount++;
-            if (readyCount > 3) {
-              // Delete older READY deployments
+            if (readyKept < 3) {
+              readyKept++;
+            } else {
               await deleteDeployment(d.uid, vercelToken);
-              vercelCleaned++;
+              deletedCount++;
             }
-          } else if (state === "ERROR" || state === "CANCELED") {
-            // Delete ERROR / CANCELED deployments
+          } else {
             await deleteDeployment(d.uid, vercelToken);
-            vercelCleaned++;
+            deletedCount++;
           }
         }
-        summary += `- 已清理 ${vercelCleaned} 筆舊版/失敗部署\n`;
-      } else {
-        console.error("Failed to fetch Vercel deployments:", await res.text());
+        vercelStatus = `已保留最新 ${readyKept} 筆部署，成功刪除 ${deletedCount} 筆舊部署快照`;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Vercel cleanup error:", e);
+      vercelStatus = `執行錯誤: ${e.message || String(e)}`;
     }
   }
 
-  if (redisCleaned === 0 && vercelCleaned === 0) {
-    summary += "目前系統空間已是最佳狀態，無需清理。";
-  }
-
-  return summary.trim();
+  return [
+    "🧹 Sport Café 系統空間清理完畢",
+    `- 釋放暫存鍵值: ${releasedKeys.length > 0 ? releasedKeys.join(", ") : "無"}`,
+    `- Vercel 狀態: ${vercelStatus}`,
+  ].join("\n");
 }
 
 async function deleteDeployment(uid: string, token: string) {
