@@ -344,7 +344,7 @@ function applyFlexibleReplace(content: string, search: string, replace: string):
 async function callAiForVideoScript(prompt: string): Promise<any> {
   const models = [
     { name: "gemini-2.5-flash", provider: "gemini" },
-    { name: "anthropic/claude-3.5-sonnet", provider: "openrouter" },
+    { name: "anthropic/claude-sonnet-5.5", provider: "openrouter" },
     { name: "gemini-2.0-flash", provider: "gemini" },
     { name: "openai/gpt-4o-mini", provider: "openrouter" },
     { name: "gemini-2.5-pro", provider: "gemini" }
@@ -751,7 +751,7 @@ ${currentContent}`;
   let openRouterError = "";
 
   if (claudeMatch) {
-    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+    parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-4.6", "openai/gpt-4o"]);
     if (parsed.error) openRouterError = parsed.error;
   } else if (gptMatch) {
     parsed = await callOpenRouterJson(finalPrompt, ["openai/gpt-4o", "openai/gpt-4o-mini"]);
@@ -763,7 +763,7 @@ ${currentContent}`;
     // 預設 Gemini -> 備援 Claude -> GPT-4o -> Grok
     parsed = await callGeminiJson(finalPrompt);
     if (!parsed.operations || parsed.operations.length === 0) {
-      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+      parsed = await callOpenRouterJson(finalPrompt, ["anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-4.6", "openai/gpt-4o"]);
       if (parsed.error) openRouterError = parsed.error;
     }
     if (!parsed.operations || parsed.operations.length === 0) {
@@ -984,7 +984,7 @@ export async function POST(req: NextRequest) {
                      Output only valid JSON, no markdown formatting.`;
 
                      try {
-                       const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-3.7-sonnet", "anthropic/claude-3.5-sonnet", "openai/gpt-4o"]);
+                       const aiRes = await callOpenRouterString(prompt, ["anthropic/claude-sonnet-5.5", "anthropic/claude-sonnet-4.6", "openai/gpt-4o"]);
                        if (aiRes) {
                          const match = aiRes.match(/\{[\s\S]*\}/);
                          if (match) {
